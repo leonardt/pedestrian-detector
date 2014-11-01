@@ -2,8 +2,8 @@
 ## CS194 Class Project
 
 ## Dependencies
-1) cmake
-2) Opencv
+1. cmake
+2. Opencv
 
 ## Build
 ```shell
