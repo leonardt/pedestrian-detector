@@ -7,15 +7,6 @@
 using namespace cv;
 using namespace std;
 
-static void help()
-{
-    cout <<
-            "\nThis program demonstrates dense optical flow algorithm by Gunnar Farneback\n"
-            "Mainly the function: calcOpticalFlowFarneback()\n"
-            "Call:\n"
-            "./fback\n"
-            "This reads from video camera 0\n" << endl;
-}
 static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
                     double, const Scalar& color)
 {
@@ -56,7 +47,6 @@ int main(int argc, char** argv)
 {
 
     VideoCapture cap(argv[1]);
-    help();
     if( !cap.isOpened() ) cap.open(0);
     if( !cap.isOpened() )
         return -1;
@@ -64,10 +54,10 @@ int main(int argc, char** argv)
     Mat prevgray, gray, flow, cflow, frame;
     namedWindow("flow", 1);
 
-    char* mode;
+    int mode = 0;
 
     if (argc > 2) {
-      mode = argv[3];
+      mode = atoi(argv[2]);
     }
 
     int count = 0;
@@ -85,7 +75,7 @@ int main(int argc, char** argv)
           if( prevgray.data ) {
               calcOpticalFlowFarneback(prevgray, gray, flow, 0.5, 3, 20, 3, 7, 1.7, 0);
               cvtColor(prevgray, cflow, COLOR_GRAY2BGR);
-              if (mode) {
+              if (mode == 1) {
                 drawOptFlowMap(flow, cflow, 8, 1.5, Scalar(0, 255, 0));
               } else {
                 drawHSVFlow(flow, cflow);
