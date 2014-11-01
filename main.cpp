@@ -29,6 +29,29 @@ static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
         }
 }
 
+static void drawHSVFlow(const Mat& flow, Mat& cflowmap) {
+  cv::Mat xy[2];
+  cv::split(flow, xy);
+  cv::Mat magnitude, angle;
+  cv::cartToPolar(xy[0], xy[1], magnitude, angle, true);
+
+  //translate magnitude to range [0;1]
+  double mag_max;
+  cv::minMaxLoc(magnitude, 0, &mag_max);
+  magnitude.convertTo(magnitude, -1, 1.0/mag_max);
+
+  //build hsv image
+  cv::Mat _hsv[3], hsv;
+  _hsv[0] = angle;
+  _hsv[1] = cv::Mat::ones(angle.size(), CV_32F);
+  _hsv[2] = magnitude;
+  cv::merge(_hsv, 3, hsv);
+
+  //convert to BGR and show
+  cv::cvtColor(hsv, cflowmap, cv::COLOR_HSV2BGR);
+}
+
+
 int main(int argc, char** argv)
 {
 
@@ -40,6 +63,12 @@ int main(int argc, char** argv)
 
     Mat prevgray, gray, flow, cflow, frame;
     namedWindow("flow", 1);
+
+    char* mode;
+
+    if (argc > 2) {
+      mode = argv[3];
+    }
 
     int count = 0;
     while(true) {
@@ -56,29 +85,12 @@ int main(int argc, char** argv)
           if( prevgray.data ) {
               calcOpticalFlowFarneback(prevgray, gray, flow, 0.5, 3, 20, 3, 7, 1.7, 0);
               cvtColor(prevgray, cflow, COLOR_GRAY2BGR);
-              cv::Mat xy[2];
-              cv::split(flow, xy);
-              cv::Mat magnitude, angle;
-              cv::cartToPolar(xy[0], xy[1], magnitude, angle, true);
-
-              //translate magnitude to range [0;1]
-              double mag_max;
-              cv::minMaxLoc(magnitude, 0, &mag_max);
-              magnitude.convertTo(magnitude, -1, 1.0/mag_max);
-
-              //build hsv image
-              cv::Mat _hsv[3], hsv;
-              _hsv[0] = angle;
-              _hsv[1] = cv::Mat::ones(angle.size(), CV_32F);
-              _hsv[2] = magnitude;
-              cv::merge(_hsv, 3, hsv);
-
-              //convert to BGR and show
-              Mat bgr;//CV_32FC3 matrix
-              cv::cvtColor(hsv, bgr, cv::COLOR_HSV2BGR);
-              cv::imshow("optical flow", bgr);
-              /* drawOptFlowMap(flow, cflow, 8, 1.5, Scalar(0, 255, 0)); */
-              /* imshow("flow", cflow); */
+              if (mode) {
+                drawOptFlowMap(flow, cflow, 8, 1.5, Scalar(0, 255, 0));
+              } else {
+                drawHSVFlow(flow, cflow);
+              }
+              imshow("flow", cflow);
           }
           if(waitKey(30)>=0)
               break;
