@@ -66,10 +66,10 @@ int main(int argc, char** argv)
     int count = 0;
     while(true) {
         cap >> frame;
-        if (!&frame) {
+        if (frame.empty()) {
           break;
         }
-        if (count < 4) {
+        if (count < 0) {
           count++;
         } else {
           count = 0;
