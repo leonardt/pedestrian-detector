@@ -58,6 +58,9 @@ int main(int argc, char** argv)
 
     if (argc > 2) {
       mode = atoi(argv[2]);
+    } else {
+      namedWindow("orig", 1);
+      moveWindow("orig", 0, 440);
     }
 
     int count = 0;
@@ -66,19 +69,20 @@ int main(int argc, char** argv)
         if (!&frame) {
           break;
         }
-        if (count < 6) {
+        if (count < 4) {
           count++;
         } else {
           count = 0;
           cvtColor(frame, gray, COLOR_BGR2GRAY);
 
           if( prevgray.data ) {
-              calcOpticalFlowFarneback(prevgray, gray, flow, 0.5, 3, 20, 3, 7, 1.7, 0);
+              calcOpticalFlowFarneback(prevgray, gray, flow, 0.5, 3, 15, 5, 5, 1.1, 0);
               cvtColor(prevgray, cflow, COLOR_GRAY2BGR);
               if (mode == 1) {
-                drawOptFlowMap(flow, cflow, 8, 1.5, Scalar(0, 255, 0));
+                drawOptFlowMap(flow, cflow, 10, 1.5, Scalar(0, 255, 0));
               } else {
                 drawHSVFlow(flow, cflow);
+                imshow("orig", gray);
               }
               imshow("flow", cflow);
           }
