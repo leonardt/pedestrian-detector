@@ -4,3 +4,9 @@ CMakeFiles
 Makefile
 cmake_install.cmake
 install_manifest.txt
+compile_commands.json
+.DS_Store
+.ycm_extra_conf.pyc
+compile_commands.json
+samples/.DS_Store
+samples/lp-right/
