@@ -56,6 +56,16 @@ flags = [
 # For a C project, you would set this to 'c' instead of 'c++'.
 '-x',
 'c++',
+'-I',
+'.',
+'-isystem',
+'/usr/include',
+'-isystem',
+'/usr/local/include',
+'-isystem',
+'/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../include/c++/v1',
+'-isystem',
+'/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include',
 ]
 
 
