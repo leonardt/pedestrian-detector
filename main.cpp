@@ -62,6 +62,8 @@ int main(int argc, char** argv)
       namedWindow("orig", 1);
       moveWindow("orig", 0, 440);
     }
+    Ptr<DenseOpticalFlow> tvl1 = createOptFlow_DualTVL1();
+    tvl1->set("warps", 3);
 
     int count = 0;
     while(true) {
@@ -76,7 +78,8 @@ int main(int argc, char** argv)
           cvtColor(frame, gray, COLOR_BGR2GRAY);
 
           if( prevgray.data ) {
-              calcOpticalFlowFarneback(prevgray, gray, flow, 0.5, 3, 15, 5, 5, 1.1, 0);
+              // calcOpticalFlowFarneback(prevgray, gray, flow, 0.5, 3, 15, 5, 5, 1.1, 0);
+              tvl1->calc(prevgray, gray, flow);
               cvtColor(prevgray, cflow, COLOR_GRAY2BGR);
               if (mode == 1) {
                 drawOptFlowMap(flow, cflow, 10, 1.5, Scalar(0, 255, 0));
