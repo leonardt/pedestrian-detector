@@ -1,6 +1,7 @@
 #include "opencv2/video/tracking.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
+#include "opencv2/calib3d/calib3d.hpp"
 
 #include <iostream>
 #include <cstdlib>
@@ -43,57 +44,71 @@ static void drawHSVFlow(const Mat& flow, Mat& cflowmap) {
   cv::cvtColor(hsv, cflowmap, cv::COLOR_HSV2BGR);
 }
 
+int openWebcam(VideoCapture cap) {
+  cap.open(0);
+  if( !cap.isOpened() ) {
+    cout << "Couldn't open webcam, exiting.\n";
+    return 1;
+  }
+  return 0;
+}
 
-int main(int argc, char** argv)
-{
 
-    VideoCapture cap(argv[1]);
-    if( !cap.isOpened() ) cap.open(0);
-    if( !cap.isOpened() )
-        return -1;
-
-    Mat prevgray, gray, flow, cflow, frame;
-    namedWindow("flow", 1);
-
-    int mode = 0;
-
-    if (argc > 2) {
-      mode = atoi(argv[2]);
-    } else {
-      namedWindow("orig", 1);
-      moveWindow("orig", 0, 440);
+int main(int argc, char** argv) {
+  VideoCapture cap;
+  if (argc > 1) {
+    cap.open(argv[1]);
+    if( !cap.isOpened() ) {
+      cout << "Couldn't open video %s, falling back to webcam\n" << argv[1];
+      int err = openWebcam(cap);
+      if (err) { return -1; }
     }
-    Ptr<DenseOpticalFlow> tvl1 = createOptFlow_DualTVL1();
-    tvl1->set("warps", 3);
+  } else{
+    cout << "No video provided, using webcam.\n";
+    int err = openWebcam(cap);
+    if (err) { return -1; }
+  }
 
-    int count = 0;
-    while(true) {
-        cap >> frame;
-        if (frame.empty()) {
-          break;
-        }
-        if (count < 0) {
-          count++;
-        } else {
-          count = 0;
-          cvtColor(frame, gray, COLOR_BGR2GRAY);
+  Mat prevgray, gray, flow, cflow, frame;
+  namedWindow("flow", 1);
 
-          if( prevgray.data ) {
-              // calcOpticalFlowFarneback(prevgray, gray, flow, 0.5, 3, 15, 5, 5, 1.1, 0);
-              tvl1->calc(prevgray, gray, flow);
-              cvtColor(prevgray, cflow, COLOR_GRAY2BGR);
-              if (mode == 1) {
-                drawOptFlowMap(flow, cflow, 10, 1.5, Scalar(0, 255, 0));
-              } else {
-                drawHSVFlow(flow, cflow);
-                imshow("orig", gray);
-              }
-              imshow("flow", cflow);
-          }
-          if(waitKey(30)>=0)
-              break;
-          std::swap(prevgray, gray);
+  int mode = 0;
+
+  if (argc > 2) {
+    mode = atoi(argv[2]);
+  } else {
+    namedWindow("orig", 1);
+    moveWindow("orig", 0, 440);
+  }
+  Ptr<DenseOpticalFlow> tvl1 = createOptFlow_DualTVL1();
+
+  int count = 0;
+  while(true) {
+      cap >> frame;
+      if (frame.empty()) {
+        break;
+      }
+      if (count < 0) {
+        count++;
+      } else {
+        count = 0;
+        cvtColor(frame, gray, COLOR_BGR2GRAY);
+
+        if( prevgray.data ) {
+            /* calcOpticalFlowFarneback(prevgray, gray, flow, 0.5, 3, 15, 5, 5, 1.1, 0); */
+            tvl1->calc(prevgray, gray, flow);
+            if (mode == 1) {
+              drawOptFlowMap(flow, cflow, 10, 1.5, Scalar(0, 255, 0));
+            } else {
+              drawHSVFlow(flow, cflow);
+              imshow("orig", gray);
+            }
+            imshow("flow", cflow);
         }
-    }
-    return 0;
+        if(waitKey(30)>=0)
+            break;
+        std::swap(prevgray, gray);
+      }
+  }
+  return 0;
 }
