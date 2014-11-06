@@ -9,6 +9,8 @@
 using namespace cv;
 using namespace std;
 
+const float THRESHOLD = 1.0f;
+
 static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
                     double, const Scalar& color)
 {
@@ -20,6 +22,29 @@ static void drawOptFlowMap(const Mat& flow, Mat& cflowmap, int step,
                  color);
             circle(cflowmap, Point(x,y), 2, color, -1);
         }
+}
+
+static void drawHorizontalFlowHistogram(const Mat& flow, Mat& cflowmap, int step,
+                    double, const Scalar& color)
+{
+    for(int y = 0; y < cflowmap.rows; y += step) {
+        float rowCount = 0;
+        for(int x = 0; x < cflowmap.cols; x += step)
+        {
+            const Point2f& fxy = flow.at<Point2f>(y, x);
+            rowCount += fxy.x + fxy.y;
+        }
+        line(cflowmap, Point(0,y), Point(cvRound(rowCount), y), color);
+    }
+    for(int x = 0; x < cflowmap.cols; x += step) {
+        float colCount = 0;
+        for(int y = 0; y < cflowmap.rows; y += step)
+        {
+            const Point2f& fxy = flow.at<Point2f>(y, x);
+            colCount += fxy.x + fxy.y;
+        }
+        line(cflowmap, Point(x,0), Point(x, cvRound(colCount)), color);
+    }
 }
 
 static void drawHSVFlow(const Mat& flow, Mat& cflowmap) {
@@ -69,8 +94,9 @@ int main(int argc, char** argv) {
     if (err) { return -1; }
   }
 
-  Mat prevgray, gray, flow, cflow, frame;
+  Mat prevgray, gray, flow, cflow, frame, hist;
   namedWindow("flow", 1);
+  namedWindow("hist", 1);
 
   int mode = 0;
 
@@ -88,27 +114,29 @@ int main(int argc, char** argv) {
       if (frame.empty()) {
         break;
       }
-      if (count < 0) {
-        count++;
-      } else {
-        count = 0;
-        cvtColor(frame, gray, COLOR_BGR2GRAY);
+      count++;
+      if (count == 2) break;
+      count = 0;
+      cvtColor(frame, gray, COLOR_BGR2GRAY);
 
-        if( prevgray.data ) {
-            /* calcOpticalFlowFarneback(prevgray, gray, flow, 0.5, 3, 15, 5, 5, 1.1, 0); */
-            tvl1->calc(prevgray, gray, flow);
-            if (mode == 1) {
-              drawOptFlowMap(flow, cflow, 10, 1.5, Scalar(0, 255, 0));
-            } else {
-              drawHSVFlow(flow, cflow);
-              imshow("orig", gray);
-            }
-            imshow("flow", cflow);
-        }
-        if(waitKey(30)>=0)
-            break;
-        std::swap(prevgray, gray);
+      if( prevgray.data ) {
+          /* calcOpticalFlowFarneback(prevgray, gray, flow, 0.5, 3, 15, 5, 5, 1.1, 0); */
+          tvl1->calc(prevgray, gray, flow);
+          cvtColor(frame, hist, COLOR_BGR2GRAY);
+          if (mode == 1) {
+            cvtColor(frame, cflow, COLOR_BGR2GRAY);
+            drawOptFlowMap(flow, cflow, 10, 1.5, Scalar(0, 255, 0));
+          } else {
+            drawHSVFlow(flow, cflow);
+            imshow("orig", gray);
+          }
+          imshow("flow", cflow);
+            drawHorizontalFlowHistogram(flow, hist, 10, 1.5, Scalar(0, 255, 0));
+            imshow("horiz", hist);
       }
+      if(waitKey(30)>=0)
+          break;
+      std::swap(prevgray, gray);
   }
   return 0;
 }
