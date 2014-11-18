@@ -1,7 +1,13 @@
 #include <iostream>
+#include <assert.h>
 #include <limits>
+#include <vector>
 
-void convolve(float* input, float* output, int n, float* weights, int r) {
+#include "opencv2/video/tracking.hpp"
+
+using namespace cv;
+
+void convolve(float* input, float* output, float* weights) {
   for (int i = r; i < n - r; i++) {
     for (int j = r; j < n - r; j++) {
       float sum = 0.0;
@@ -12,7 +18,7 @@ void convolve(float* input, float* output, int n, float* weights, int r) {
           sum += weight * elt;
         }
       }
-      output[(i - r) * (n - 2 * r) + (j - r)] = sum;
+      output[(i - r) * (n - 2 * r) + (j - r)] += sum;
     }
   }
 }
@@ -33,6 +39,18 @@ void max_pool(float* input, float* output, int n, int s) {
       output[i * n + j] = elt;
     }
   }
+}
+
+void convolution_layer(vector<Mat> inputs, 
+                       vector<Mat> outputs,
+                       vector<Mat> weights) {
+  assert(outputs.size() == weights.size());
+  for (uint8_t i = 0; i < weights.size(); i++) {
+    for (uint8_t j = 0; j < inputs.size(); j++) {
+      convolve(inputs[i], weights[i], )
+    }
+  }
+
 }
 
 int main(int argc, char *argv[]) {
@@ -60,6 +78,11 @@ int main(int argc, char *argv[]) {
   }
   int out_n = n - 2 * w;
   float* output = new float[out_n * out_n];
+  for (int i = 0; i < out_n; ++i) {
+    for (int j = 0; j < out_n; ++j) {
+      output[i * out_n + j] = 0.0;
+    }
+  }
   convolve(input, output, n, weights, 2);
   printf("Output\n");
   for (int i = 0; i < out_n; ++i) {
