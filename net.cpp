@@ -62,7 +62,7 @@ float* gen_random_weights(int radius, float range) {
   float* weights = new float[(radius * 2 + 1) * (radius * 2 + 1)];
   for (int i = 0; i < (radius * 2 + 1); i++) {
      for (int j = 0; j < (radius * 2 + 1); j++) {
-       weights[i * (radius * 2 + 1) + j] = (rand() / RAND_MAX) * (range * 2 + 1) - range;
+       weights[i * (radius * 2 + 1) + j] = ((float) rand() / (float) RAND_MAX) * (range * 2 + 1) - range;
     }
   }
   return weights;
