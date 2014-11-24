@@ -50,7 +50,7 @@ Mat layer2_compute(vector<Mat> inputs, vector<float*> weights, int r, int s) {
   int rows = inputs[0].rows;
   int cols = inputs[0].cols;
   Mat conv_out = Mat::zeros(rows - 2 * r, cols - 2 * r, CV_32F);
-  for (ulong i = 0; i < weights.size(); ++i) {
+  for (int i = 0; i < weights.size(); ++i) {
     convolve(inputs[i], conv_out, weights[i], r);
   }
   Mat output = Mat::zeros((rows - 2 * r) / s, (cols - 2 * r) / s, CV_32F);
@@ -58,17 +58,18 @@ Mat layer2_compute(vector<Mat> inputs, vector<float*> weights, int r, int s) {
   return output;
 }
 
-float* gen_random_weights(int radius) {
+float* gen_random_weights(int radius, float range) {
   float* weights = new float[(radius * 2 + 1) * (radius * 2 + 1)];
   for (int i = 0; i < (radius * 2 + 1); i++) {
      for (int j = 0; j < (radius * 2 + 1); j++) {
-       weights[i * (radius * 2 + 1) + j] = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
+       weights[i * (radius * 2 + 1) + j] = (rand() / RAND_MAX) * (range * 2 + 1) - range;
     }
   }
   return weights;
 }
 
 int main( int argc, char** argv ) {
+    srand(time(NULL));
     if( argc != 2) {
      cout <<" Usage: display_image ImageToLoadAndDisplay" << endl;
      return -1;
@@ -87,7 +88,7 @@ int main( int argc, char** argv ) {
     int l1_numoutputs = 4;
     vector<Mat> l1_outputs(0);
     int w = 2;
-    float* l1_weights = gen_random_weights(w);
+    float* l1_weights = gen_random_weights(w, 1);
 
     // convolution layer and pooling
     for (int i = 0; i < l1_numoutputs; i++) {
@@ -102,7 +103,7 @@ int main( int argc, char** argv ) {
     for (int i = 0; i < l2_numoutputs; ++i) {
       vector<float*> weights(0);
       for (int j = 0; j < l1_numoutputs; ++j) {
-        weights.push_back(gen_random_weights(2));
+        weights.push_back(gen_random_weights(2, l1_numoutputs));
       }
       l2_weights.push_back(weights);
     }
