@@ -1,5 +1,5 @@
 __kernel void conv(__global float *Output, __global float *Input, __global float *Weights, 
-	 int n, int r)
+	 int rows, int cols, int r)
 {
 
   // weights is passed in, read only, read by all work items
@@ -21,7 +21,7 @@ __kernel void conv(__global float *Output, __global float *Input, __global float
   int i = get_global_id(0);
   int j = get_global_id(1);
 
-  if ((i >= r && i < n - r) && (j >= r && j < n - r)) {
+  if ((i >= r && i < rows - r) && (j >= r && j < cols - r)) {
 
     float sum = 0.0f;
     float elt;
@@ -29,11 +29,11 @@ __kernel void conv(__global float *Output, __global float *Input, __global float
 
     for (int ii = -r; ii <= r; ii++) {
       for (int jj = -r; jj <= r; jj++) {
-        elt = Input[(i + ii) * n + j + jj];
+        elt = Input[(i + ii) * cols + j + jj];
         weight = Weights[(ii + r) * (2 * r + 1) + jj + r];
         sum += weight * elt;
       }
     }
-    Output[(i - r) * (n - 2 * r) + (j - r)] += sum;
+    Output[(i - r) * (cols - 2 * r) + (j - r)] += sum;
   }
 }
