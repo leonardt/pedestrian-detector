@@ -1,4 +1,6 @@
+Makefile
 main
+net
 CMakeCache.txt
 CMakeFiles
 Makefile
@@ -11,3 +13,4 @@ compile_commands.json
 samples/.DS_Store
 samples/lp-right/
 samples/stationary
+samples/ped-dataset*
