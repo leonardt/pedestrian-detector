@@ -7,28 +7,21 @@
 
 using namespace cv;
 
-void convolve(float* input, float* output, float* weights, int n, int r) {
+void convolve(float* input, float* output, float* weights) {
   for (int i = r; i < n - r; i++) {
     for (int j = r; j < n - r; j++) {
-
-
       float sum = 0.0;
       for (int ii = -r; ii <= r; ii++) {
         for (int jj = -r; jj <= r; jj++) {
           float elt = input[(i + ii) * n + j + jj];
-          //printf("elt: %f\n", elt);
           float weight = weights[(ii + r) * (2 * r + 1) + jj + r];
           sum += weight * elt;
         }
       }
       output[(i - r) * (n - 2 * r) + (j - r)] += sum;
-      //printf("%f\n", sum);
     }
   }
 }
-
-
-// if going from conv to max pool, will want to keep result of conv on gpu to avoid memory overhead
 
 void max_pool(float* input, float* output, int n, int s) {
   for (int i = 0; i < n / s; i++) {
@@ -48,7 +41,6 @@ void max_pool(float* input, float* output, int n, int s) {
   }
 }
 
-/*
 void convolution_layer(vector<Mat> inputs, 
                        vector<Mat> outputs,
                        vector<Mat> weights) {
@@ -91,7 +83,7 @@ int main(int argc, char *argv[]) {
       output[i * out_n + j] = 0.0;
     }
   }
-  convolve(input, output, weights, n, 2);
+  convolve(input, output, n, weights, 2);
   printf("Output\n");
   for (int i = 0; i < out_n; ++i) {
     for (int j = 0; j < out_n; ++j) {
@@ -113,4 +105,3 @@ int main(int argc, char *argv[]) {
   printf("------------\n");
   return 0;
 }
-*/
