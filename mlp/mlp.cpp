@@ -30,6 +30,7 @@ Hidden_Layer::Hidden_Layer(float *input, float *layer_weights, float *bias, int 
     bias = bias;
     n_in = n_in;
     n_out = n_out;
+    output = (float *) malloc(n_in*sizeof(float));
     float *Wx = (float *) malloc(n_in*sizeof(float)); //Product Wx has dimensions n_in * 1
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n_in, n_out, 1.0f, layer_weights, n_in, input, 1, 1.0f, Wx, 1);
     cblas_saxpy(n_in, 1.0, bias, 1, Wx, 1);
@@ -37,6 +38,7 @@ Hidden_Layer::Hidden_Layer(float *input, float *layer_weights, float *bias, int 
         Wx[i] = tanh(Wx[i]);
         printf("%f ", Wx[i]);
     }
+    output = Wx;
 
 }
 
@@ -55,9 +57,7 @@ int forward_prop(float *input, int input_size, float *weights, int *dim, int dim
     	int b = dim[dim_index+1];
     	float *layer_weights = (float *) malloc(a*b*sizeof(float)); //weight matrix for this layer
     	memcpy(layer_weights, weights, 36*36*sizeof(float));
-        float *result = (float *) malloc(36*sizeof(float));
         float *bias = (float *) malloc(36*sizeof(float));
-
         Hidden_Layer layer(input, layer_weights, bias, 36, 36);
     // Need a matrix-vector multiply here. Layer_weights*input 
     //sgemm("n","n", 36, 1, 36, 1, layer_weights, 36, input, 1, 1, result, 36);
