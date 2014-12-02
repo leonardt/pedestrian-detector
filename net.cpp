@@ -52,8 +52,15 @@ void layer1_compute(Mat input, Mat output, float *weights, int r, int s) {
 }
 
 void layer1_ocl(Mat input, Mat output, float *weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
+    cl_int err = CL_SUCCESS;
+    cl_mem g_Input = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
+            input.rows * input.cols * sizeof(float), NULL, &err);
+    CHK_ERR(err);
+    err = clEnqueueWriteBuffer(cv.commands, g_Input, true, 0, input.rows * input.cols * sizeof(float),
+            (float*)input.data, 0, NULL, NULL);
+    CHK_ERR(err);
     Mat conv_out = Mat::zeros(input.rows - 2 * r, input.cols - 2 * r, CV_32F);
-    ocl_conv(input, conv_out, weights, r, cv, conv);
+    ocl_conv(g_Input, input.rows, input.cols, conv_out, weights, r, cv, conv);
     /* cout << "convolved = " << endl << " " << conv_out << endl << endl; */
     max_pool(conv_out, output, s);
 }
@@ -75,7 +82,14 @@ Mat layer2_ocl(vector<Mat> inputs, vector<float *> weights, int r, int s, cl_var
     int cols = inputs[0].cols;
     Mat conv_out = Mat::zeros(rows - 2 * r, cols - 2 * r, CV_32F);
     for (int i = 0; i < weights.size(); ++i) {
-      ocl_conv(inputs[i], conv_out, weights[i], r, cv, conv);
+        cl_int err = CL_SUCCESS;
+        cl_mem g_Input = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
+                rows * cols * sizeof(float), NULL, &err);
+        CHK_ERR(err);
+        err = clEnqueueWriteBuffer(cv.commands, g_Input, true, 0, rows * cols * sizeof(float),
+                (float*)inputs[i].data, 0, NULL, NULL);
+        CHK_ERR(err);
+        ocl_conv(g_Input, rows, cols, conv_out, weights[i], r, cv, conv);
     }
     Mat output = Mat::zeros((rows - 2 * r) / s, (cols - 2 * r) / s, CV_32F);
     max_pool(conv_out, output, s);

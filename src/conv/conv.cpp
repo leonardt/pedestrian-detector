@@ -13,10 +13,10 @@
 
 using namespace cv;
 
-void ocl_conv(Mat input, Mat output, float *weights, int r, cl_vars_t cv, cl_kernel conv) {
+void ocl_conv(cl_mem input, int rows, int cols, Mat output, float *weights, int r, cl_vars_t cv, cl_kernel conv) {
 
 //  float *h_Input, *h_Weights, *h_Output, *h_OutputSerial;
-    cl_mem g_Input, g_Weights, g_Output;
+    cl_mem g_Weights, g_Output;
 
 //  int n = 32;
 //  int r = 2;
@@ -47,9 +47,9 @@ void ocl_conv(Mat input, Mat output, float *weights, int r, cl_vars_t cv, cl_ker
             output.rows * output.cols * sizeof(float), NULL, &err);
     CHK_ERR(err);
 
-    g_Input = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
-            input.rows * input.cols * sizeof(float), NULL, &err);
-    CHK_ERR(err);
+    // g_Input = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
+    //         input.rows * input.cols * sizeof(float), NULL, &err);
+    // CHK_ERR(err);
 
     int weights_size = (r * 2 + 1) * (r * 2 + 1) * sizeof(float);
     g_Weights = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
@@ -64,33 +64,33 @@ void ocl_conv(Mat input, Mat output, float *weights, int r, cl_vars_t cv, cl_ker
             (float*)output.data, 0, NULL, NULL);
     CHK_ERR(err);
 
-    err = clEnqueueWriteBuffer(cv.commands, g_Input, true, 0, input.rows * input.cols * sizeof(float),
-            (float*)input.data, 0, NULL, NULL);
-    CHK_ERR(err);
+    // err = clEnqueueWriteBuffer(cv.commands, g_Input, true, 0, input.rows * input.cols * sizeof(float),
+    //         (float*)input.data, 0, NULL, NULL);
+    // CHK_ERR(err);
 
     err = clEnqueueWriteBuffer(cv.commands, g_Weights, true, 0, weights_size,
             weights, 0, NULL, NULL);
     CHK_ERR(err);
 
 
-    size_t global_work_size[2] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols)};
-    size_t local_work_size[2] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols)};
+    size_t global_work_size[2] = {static_cast<size_t>(rows), static_cast<size_t>(cols)};
+    size_t local_work_size[2] = {static_cast<size_t>(rows), static_cast<size_t>(cols)};
 
     /* Set kernel arguments */
 
     err = clSetKernelArg(conv, 0, sizeof(cl_mem), &g_Output);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 1, sizeof(cl_mem), &g_Input);
+    err = clSetKernelArg(conv, 1, sizeof(cl_mem), &input);
     CHK_ERR(err);
 
     err = clSetKernelArg(conv, 2, sizeof(cl_mem), &g_Weights);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 3, sizeof(int), &input.rows);
+    err = clSetKernelArg(conv, 3, sizeof(int), &rows);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 4, sizeof(int), &input.cols);
+    err = clSetKernelArg(conv, 4, sizeof(int), &cols);
     CHK_ERR(err);
 
     err = clSetKernelArg(conv, 5, sizeof(int), &r);
@@ -176,7 +176,7 @@ void ocl_conv(Mat input, Mat output, float *weights, int r, cl_vars_t cv, cl_ker
 //    delete[] h_Output;
 //    delete[] h_OutputSerial;
 
-    clReleaseMemObject(g_Input);
+    // clReleaseMemObject(g_Input);
     clReleaseMemObject(g_Weights);
     clReleaseMemObject(g_Output);
 
