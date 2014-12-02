@@ -51,16 +51,9 @@ void layer1_compute(Mat input, Mat output, float *weights, int r, int s) {
     max_pool(conv_out, output, s);
 }
 
-void layer1_ocl(Mat input, Mat output, float *weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
-    cl_int err = CL_SUCCESS;
-    cl_mem g_Input = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
-            input.rows * input.cols * sizeof(float), NULL, &err);
-    CHK_ERR(err);
-    err = clEnqueueWriteBuffer(cv.commands, g_Input, true, 0, input.rows * input.cols * sizeof(float),
-            (float*)input.data, 0, NULL, NULL);
-    CHK_ERR(err);
-    Mat conv_out = Mat::zeros(input.rows - 2 * r, input.cols - 2 * r, CV_32F);
-    ocl_conv(g_Input, input.rows, input.cols, conv_out, weights, r, cv, conv);
+void layer1_ocl(cl_mem input, int rows, int cols, Mat output, float *weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
+    Mat conv_out = Mat::zeros(rows - 2 * r, cols - 2 * r, CV_32F);
+    ocl_conv(input, rows, cols, conv_out, weights, r, cv, conv);
     /* cout << "convolved = " << endl << " " << conv_out << endl << endl; */
     max_pool(conv_out, output, s);
 }
@@ -156,6 +149,14 @@ int main(int argc, char **argv) {
     compile_ocl_program(conv, cv, conv_kernel_str.c_str(),
             conv_name_str.c_str());
 
+    cl_int err = CL_SUCCESS;
+    cl_mem ocl_image = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
+            image.rows * image.cols * sizeof(float), NULL, &err);
+    CHK_ERR(err);
+    err = clEnqueueWriteBuffer(cv.commands, ocl_image, true, 0, image.rows * image.cols * sizeof(float),
+            (float*)image.data, 0, NULL, NULL);
+    CHK_ERR(err);
+
     int l1_numoutputs = 4;
     vector<Mat> l1_outputs(0);
     int w = 2;
@@ -171,7 +172,7 @@ int main(int argc, char **argv) {
         cout << "layer1 naive time " << t0 << endl;
         
         t0 = timestamp();
-        layer1_ocl(image, ocl_out, l1_weights, w, 2, cv, conv);
+        layer1_ocl(ocl_image, image.rows, image.cols, ocl_out, l1_weights, w, 2, cv, conv);
         t0 = timestamp() - t0;
         cout << "layer1 ocl time " << t0 << endl;
         check_outputs(ocl_out, out);
