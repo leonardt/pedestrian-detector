@@ -74,7 +74,7 @@ void ocl_conv(Mat input, Mat output, float *weights, int r, cl_vars_t cv, cl_ker
 
 
     size_t global_work_size[2] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols)};
-    size_t local_work_size[2] = {1, 1};
+    size_t local_work_size[2] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols)};
 
     /* Set kernel arguments */
 
