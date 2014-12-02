@@ -34,19 +34,19 @@ cmake_force:
 SHELL = /bin/sh
 
 # The CMake executable.
-CMAKE_COMMAND = /usr/local/Cellar/cmake/3.0.0/bin/cmake
+CMAKE_COMMAND = /usr/local/Cellar/cmake/3.0.2/bin/cmake
 
 # The command to remove a file.
-RM = /usr/local/Cellar/cmake/3.0.0/bin/cmake -E remove -f
+RM = /usr/local/Cellar/cmake/3.0.2/bin/cmake -E remove -f
 
 # Escaping for special characters.
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /Users/Jeffrey/Documents/Berkeley/CS194-15/project/pedestrian-detector
+CMAKE_SOURCE_DIR = /Users/leonardtruong/school/cs194/pedestrian-detector
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /Users/Jeffrey/Documents/Berkeley/CS194-15/project/pedestrian-detector
+CMAKE_BINARY_DIR = /Users/leonardtruong/school/cs194/pedestrian-detector
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -54,7 +54,7 @@ CMAKE_BINARY_DIR = /Users/Jeffrey/Documents/Berkeley/CS194-15/project/pedestrian
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
-	/usr/local/Cellar/cmake/3.0.0/bin/ccmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	/usr/local/Cellar/cmake/3.0.2/bin/ccmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : edit_cache
 
 # Special rule for the target edit_cache
@@ -64,7 +64,7 @@ edit_cache/fast: edit_cache
 # Special rule for the target rebuild_cache
 rebuild_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
-	/usr/local/Cellar/cmake/3.0.0/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	/usr/local/Cellar/cmake/3.0.2/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : rebuild_cache
 
 # Special rule for the target rebuild_cache
@@ -73,9 +73,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Jeffrey/Documents/Berkeley/CS194-15/project/pedestrian-detector/CMakeFiles /Users/Jeffrey/Documents/Berkeley/CS194-15/project/pedestrian-detector/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/leonardtruong/school/cs194/pedestrian-detector/CMakeFiles /Users/leonardtruong/school/cs194/pedestrian-detector/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/Jeffrey/Documents/Berkeley/CS194-15/project/pedestrian-detector/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/leonardtruong/school/cs194/pedestrian-detector/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -115,6 +115,19 @@ main/fast:
 	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/build
 .PHONY : main/fast
 
+#=============================================================================
+# Target rules for targets named net
+
+# Build rule for target.
+net: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 net
+.PHONY : net
+
+# fast build rule for target.
+net/fast:
+	$(MAKE) -f CMakeFiles/net.dir/build.make CMakeFiles/net.dir/build
+.PHONY : net/fast
+
 main.o: main.cpp.o
 .PHONY : main.o
 
@@ -139,6 +152,78 @@ main.cpp.s:
 	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/main.cpp.s
 .PHONY : main.cpp.s
 
+net.o: net.cpp.o
+.PHONY : net.o
+
+# target to build an object file
+net.cpp.o:
+	$(MAKE) -f CMakeFiles/net.dir/build.make CMakeFiles/net.dir/net.cpp.o
+.PHONY : net.cpp.o
+
+net.i: net.cpp.i
+.PHONY : net.i
+
+# target to preprocess a source file
+net.cpp.i:
+	$(MAKE) -f CMakeFiles/net.dir/build.make CMakeFiles/net.dir/net.cpp.i
+.PHONY : net.cpp.i
+
+net.s: net.cpp.s
+.PHONY : net.s
+
+# target to generate assembly for a file
+net.cpp.s:
+	$(MAKE) -f CMakeFiles/net.dir/build.make CMakeFiles/net.dir/net.cpp.s
+.PHONY : net.cpp.s
+
+src/conv/clhelp.o: src/conv/clhelp.cpp.o
+.PHONY : src/conv/clhelp.o
+
+# target to build an object file
+src/conv/clhelp.cpp.o:
+	$(MAKE) -f CMakeFiles/net.dir/build.make CMakeFiles/net.dir/src/conv/clhelp.cpp.o
+.PHONY : src/conv/clhelp.cpp.o
+
+src/conv/clhelp.i: src/conv/clhelp.cpp.i
+.PHONY : src/conv/clhelp.i
+
+# target to preprocess a source file
+src/conv/clhelp.cpp.i:
+	$(MAKE) -f CMakeFiles/net.dir/build.make CMakeFiles/net.dir/src/conv/clhelp.cpp.i
+.PHONY : src/conv/clhelp.cpp.i
+
+src/conv/clhelp.s: src/conv/clhelp.cpp.s
+.PHONY : src/conv/clhelp.s
+
+# target to generate assembly for a file
+src/conv/clhelp.cpp.s:
+	$(MAKE) -f CMakeFiles/net.dir/build.make CMakeFiles/net.dir/src/conv/clhelp.cpp.s
+.PHONY : src/conv/clhelp.cpp.s
+
+src/util.o: src/util.cpp.o
+.PHONY : src/util.o
+
+# target to build an object file
+src/util.cpp.o:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/util.cpp.o
+.PHONY : src/util.cpp.o
+
+src/util.i: src/util.cpp.i
+.PHONY : src/util.i
+
+# target to preprocess a source file
+src/util.cpp.i:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/util.cpp.i
+.PHONY : src/util.cpp.i
+
+src/util.s: src/util.cpp.s
+.PHONY : src/util.s
+
+# target to generate assembly for a file
+src/util.cpp.s:
+	$(MAKE) -f CMakeFiles/main.dir/build.make CMakeFiles/main.dir/src/util.cpp.s
+.PHONY : src/util.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -147,10 +232,20 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... main"
+	@echo "... net"
 	@echo "... rebuild_cache"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
+	@echo "... net.o"
+	@echo "... net.i"
+	@echo "... net.s"
+	@echo "... src/conv/clhelp.o"
+	@echo "... src/conv/clhelp.i"
+	@echo "... src/conv/clhelp.s"
+	@echo "... src/util.o"
+	@echo "... src/util.i"
+	@echo "... src/util.s"
 .PHONY : help
 
 
