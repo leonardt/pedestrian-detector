@@ -4,6 +4,7 @@
 #include <iostream>
 #include <random>
 #include "src/conv/conv.cpp"
+#include <cstdlib>
 
 using namespace cv;
 using namespace std;
@@ -49,9 +50,9 @@ void layer1_compute(Mat input, Mat output, float *weights, int r, int s) {
     max_pool(conv_out, output, s);
 }
 
-void layer1_ocl(Mat input, Mat output, float *weights, int r, int s) {
+void layer1_ocl(Mat input, Mat output, float *weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
     Mat conv_out = Mat::zeros(input.rows - 2 * r, input.cols - 2 * r, CV_32F);
-    ocl_conv(input, conv_out, weights, r);
+    ocl_conv(input, conv_out, weights, r, cv, conv);
     /* cout << "convolved = " << endl << " " << conv_out << endl << endl; */
     max_pool(conv_out, output, s);
 }
@@ -68,12 +69,12 @@ Mat layer2_compute(vector<Mat> inputs, vector<float *> weights, int r, int s) {
     return output;
 }
 
-Mat layer2_ocl(vector<Mat> inputs, vector<float *> weights, int r, int s) {
+Mat layer2_ocl(vector<Mat> inputs, vector<float *> weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
     int rows = inputs[0].rows;
     int cols = inputs[0].cols;
     Mat conv_out = Mat::zeros(rows - 2 * r, cols - 2 * r, CV_32F);
     for (int i = 0; i < weights.size(); ++i) {
-        ocl_conv(inputs[i], conv_out, weights[i], r);
+      ocl_conv(inputs[i], conv_out, weights[i], r, cv, conv);
     }
     Mat output = Mat::zeros((rows - 2 * r) / s, (cols - 2 * r) / s, CV_32F);
     max_pool(conv_out, output, s);
@@ -122,6 +123,24 @@ int main(int argc, char **argv) {
 
     // cout << "img_data = " << endl << " " << image << endl << endl;
 
+    std::string conv_kernel_str;
+
+    std::string conv_name_str =
+            std::string("conv");
+    std::string conv_kernel_file =
+            std::string("./src/conv/conv.cl");
+
+    cl_vars_t cv;
+    cl_kernel conv;
+
+    readFile(conv_kernel_file,
+            conv_kernel_str);
+
+    initialize_ocl(cv);
+
+    compile_ocl_program(conv, cv, conv_kernel_str.c_str(),
+            conv_name_str.c_str());
+
     int l1_numoutputs = 4;
     vector<Mat> l1_outputs(0);
     int w = 2;
@@ -132,7 +151,7 @@ int main(int argc, char **argv) {
         Mat out = Mat::zeros((image.rows - 2 * w) / 2, (image.cols - 2 * w) / 2, CV_32F);
         Mat ocl_out = Mat::zeros((image.rows - 2 * w) / 2, (image.cols - 2 * w) / 2, CV_32F);
         layer1_compute(image, out, l1_weights, w, 2);
-        layer1_ocl(image, ocl_out, l1_weights, w, 2);
+        layer1_ocl(image, ocl_out, l1_weights, w, 2, cv, conv);
         check_outputs(ocl_out, out);
         
         l1_outputs.push_back(ocl_out);
@@ -151,7 +170,7 @@ int main(int argc, char **argv) {
     vector<Mat> l2_outputs(0);
     for (vector<float *> weights : l2_weights) {
         Mat out = layer2_compute(l1_outputs, weights, 2, 2);
-        Mat ocl_out = layer2_ocl(l1_outputs, weights, 2, 2);
+        Mat ocl_out = layer2_ocl(l1_outputs, weights, 2, 2, cv, conv);
         l2_outputs.push_back(ocl_out);
         check_outputs(ocl_out, out);
     }
@@ -161,6 +180,7 @@ int main(int argc, char **argv) {
 
     // waitKey(0);                                          // Wait for a keystroke in the window
     cout << "PASSED" << endl;
+    uninitialize_ocl(cv);
     
     return 0;
 }

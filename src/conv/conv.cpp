@@ -13,24 +13,7 @@
 
 using namespace cv;
 
-void ocl_conv(Mat input, Mat output, float *weights, int r) {
-    std::string conv_kernel_str;
-
-    std::string conv_name_str =
-            std::string("conv");
-    std::string conv_kernel_file =
-            std::string("./src/conv/conv.cl");
-
-    cl_vars_t cv;
-    cl_kernel conv;
-
-    readFile(conv_kernel_file,
-            conv_kernel_str);
-
-    initialize_ocl(cv);
-
-    compile_ocl_program(conv, cv, conv_kernel_str.c_str(),
-            conv_name_str.c_str());
+void ocl_conv(Mat input, Mat output, float *weights, int r, cl_vars_t cv, cl_kernel conv) {
 
 //  float *h_Input, *h_Weights, *h_Output, *h_OutputSerial;
     cl_mem g_Input, g_Weights, g_Output;
@@ -187,7 +170,6 @@ void ocl_conv(Mat input, Mat output, float *weights, int r) {
 //            break;
 //        }
 //    }
-    uninitialize_ocl(cv);
 
 //    delete[] h_Input;
 //    delete[] h_Weights;
