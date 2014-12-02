@@ -5,6 +5,7 @@
 #include <random>
 #include "src/conv/conv.cpp"
 #include <cstdlib>
+#include <cstdlib>
 
 using namespace cv;
 using namespace std;
@@ -150,8 +151,15 @@ int main(int argc, char **argv) {
     for (int i = 0; i < l1_numoutputs; i++) {
         Mat out = Mat::zeros((image.rows - 2 * w) / 2, (image.cols - 2 * w) / 2, CV_32F);
         Mat ocl_out = Mat::zeros((image.rows - 2 * w) / 2, (image.cols - 2 * w) / 2, CV_32F);
+        double t0 = timestamp();
         layer1_compute(image, out, l1_weights, w, 2);
+        t0 = timestamp() - t0;
+        cout << "layer1 naive time " << t0 << endl;
+        
+        t0 = timestamp();
         layer1_ocl(image, ocl_out, l1_weights, w, 2, cv, conv);
+        t0 = timestamp() - t0;
+        cout << "layer1 ocl time " << t0 << endl;
         check_outputs(ocl_out, out);
         
         l1_outputs.push_back(ocl_out);
@@ -169,8 +177,14 @@ int main(int argc, char **argv) {
 
     vector<Mat> l2_outputs(0);
     for (vector<float *> weights : l2_weights) {
+        double t0 = timestamp();
         Mat out = layer2_compute(l1_outputs, weights, 2, 2);
+        t0 = timestamp() - t0;
+        cout << "layer2 naive time " << t0 << endl;
+        t0 = timestamp();
         Mat ocl_out = layer2_ocl(l1_outputs, weights, 2, 2, cv, conv);
+        t0 = timestamp() - t0;
+        cout << "layer2 ocl time " << t0 << endl;
         l2_outputs.push_back(ocl_out);
         check_outputs(ocl_out, out);
     }
