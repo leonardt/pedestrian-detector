@@ -118,10 +118,8 @@ int main(int argc, char **argv) {
         Mat ocl_out = Mat::zeros((image.rows - 2 * w) / 2, (image.cols - 2 * w) / 2, CV_32F);
         layer1_compute(image, out, l1_weights, w, 2);
         layer1_ocl(image, ocl_out, l1_weights, w, 2);
-        // cout << "layer1_out[" << i << "] = " << endl << " " << out << endl << endl;
-        // cout << "layer1_ocl_out[" << i << "] = " << endl << " " << ocl_out << endl << endl;
-        for (int i; i < ocl_out.rows; i++) {
-          for (int j; j < ocl_out.cols; j++) {
+        for (int i = 0; i < ocl_out.rows; i++) {
+          for (int j = 0; j < ocl_out.cols; j++) {
             if (ocl_out.at<float>(i, j) != out.at<float>(i, j)) {
               cout << "Not equal at (" << i << ", " << j << ")";
               return 1;
@@ -147,8 +145,6 @@ int main(int argc, char **argv) {
         Mat out = layer2_compute(l1_outputs, weights, 2, 2);
         Mat ocl_out = layer2_ocl(l1_outputs, weights, 2, 2);
         l2_outputs.push_back(ocl_out);
-        // cout << "layer2_out = " << endl << " " << out << endl << endl;
-        // cout << "layer2_ocl_out = " << endl << " " << ocl_out << endl << endl;
         for (int i = 0; i < ocl_out.rows; i++) {
           for (int j = 0; j < ocl_out.cols; j++) {
             if (ocl_out.at<float>(i, j) != out.at<float>(i, j)) {
