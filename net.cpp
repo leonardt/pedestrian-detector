@@ -149,8 +149,8 @@ int main(int argc, char **argv) {
         l2_outputs.push_back(ocl_out);
         // cout << "layer2_out = " << endl << " " << out << endl << endl;
         // cout << "layer2_ocl_out = " << endl << " " << ocl_out << endl << endl;
-        for (int i; i < ocl_out.rows; i++) {
-          for (int j; j < ocl_out.cols; j++) {
+        for (int i = 0; i < ocl_out.rows; i++) {
+          for (int j = 0; j < ocl_out.cols; j++) {
             if (ocl_out.at<float>(i, j) != out.at<float>(i, j)) {
               cout << "Not equal at (" << i << ", " << j << ")";
               return 1;
