@@ -90,6 +90,21 @@ float *gen_random_weights(int radius, float range) {
     return weights;
 }
 
+void check_outputs(Mat ocl_out, Mat out) {
+  for (int i = 0; i < ocl_out.rows; i++) {
+    for (int j = 0; j < ocl_out.cols; j++) {
+      if (ocl_out.at<float>(i, j) != out.at<float>(i, j)) {
+        cout << "Not equal at (" << i << ", " << j << ")" << endl;
+        cout << "Serial" << endl;
+        cout << out << endl;
+        cout << "OCL" << endl;
+        cout << ocl_out;
+        exit(1);
+      }
+    }
+  }
+}
+
 int main(int argc, char **argv) {
     srand(time(NULL));
     if (argc != 2) {
@@ -105,7 +120,7 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    cout << "img_data = " << endl << " " << image << endl << endl;
+    // cout << "img_data = " << endl << " " << image << endl << endl;
 
     int l1_numoutputs = 4;
     vector<Mat> l1_outputs(0);
@@ -118,15 +133,8 @@ int main(int argc, char **argv) {
         Mat ocl_out = Mat::zeros((image.rows - 2 * w) / 2, (image.cols - 2 * w) / 2, CV_32F);
         layer1_compute(image, out, l1_weights, w, 2);
         layer1_ocl(image, ocl_out, l1_weights, w, 2);
-        for (int i = 0; i < ocl_out.rows; i++) {
-          for (int j = 0; j < ocl_out.cols; j++) {
-            if (ocl_out.at<float>(i, j) != out.at<float>(i, j)) {
-              cout << "Not equal at (" << i << ", " << j << ")";
-              return 1;
-            }
-          }
-        }
-
+        check_outputs(ocl_out, out);
+        
         l1_outputs.push_back(ocl_out);
     }
 
@@ -145,19 +153,14 @@ int main(int argc, char **argv) {
         Mat out = layer2_compute(l1_outputs, weights, 2, 2);
         Mat ocl_out = layer2_ocl(l1_outputs, weights, 2, 2);
         l2_outputs.push_back(ocl_out);
-        for (int i = 0; i < ocl_out.rows; i++) {
-          for (int j = 0; j < ocl_out.cols; j++) {
-            if (ocl_out.at<float>(i, j) != out.at<float>(i, j)) {
-              cout << "Not equal at (" << i << ", " << j << ")";
-              return 1;
-            }
-          }
-        }
+        check_outputs(ocl_out, out);
     }
 
     // namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.
     // imshow( "Display window", image );                   // Show our image inside it.
 
     // waitKey(0);                                          // Wait for a keystroke in the window
+    cout << "PASSED" << endl;
+    
     return 0;
 }
