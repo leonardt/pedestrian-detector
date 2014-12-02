@@ -47,26 +47,21 @@ void max_pool(Mat input, Mat output, int s) {
 void layer1_compute(Mat input, Mat output, float *weights, int r, int s) {
     Mat conv_out = Mat::zeros(input.rows - 2 * r, input.cols - 2 * r, CV_32F);
     convolve(input, conv_out, weights, r);
-    /* cout << "convolved = " << endl << " " << conv_out << endl << endl; */
     max_pool(conv_out, output, s);
 }
 
-void layer1_ocl(cl_mem input, int rows, int cols, Mat output, float *weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
+void layer1_ocl(cl_mem input, int rows, int cols, Mat output, cl_mem weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
     cl_int err = CL_SUCCESS;
     Mat conv_out = Mat::zeros(rows - 2 * r, cols - 2 * r, CV_32F);
     cl_mem g_Output = clCreateBuffer(cv.context, CL_MEM_READ_WRITE,
             conv_out.rows * conv_out.cols * sizeof(float), NULL, &err);
     CHK_ERR(err);
-    // err = clEnqueueWriteBuffer(cv.commands, g_Output, true, 0, conv_out.rows * conv_out.cols * sizeof(float),
-    //         (float*)conv_out.data, 0, NULL, NULL);
-    // CHK_ERR(err);
     ocl_conv(input, rows, cols, g_Output, weights, r, cv, conv);
     err = clEnqueueReadBuffer(cv.commands, g_Output, true, 0, conv_out.rows * conv_out.cols * sizeof(float),
             (float*)conv_out.data, 0, NULL, NULL);
     CHK_ERR(err);
     err = clFinish(cv.commands);
     CHK_ERR(err);
-    /* cout << "convolved = " << endl << " " << conv_out << endl << endl; */
     max_pool(conv_out, output, s);
 }
 
@@ -82,7 +77,7 @@ Mat layer2_compute(vector<Mat> inputs, vector<float *> weights, int r, int s) {
     return output;
 }
 
-Mat layer2_ocl(vector<Mat> inputs, vector<float *> weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
+Mat layer2_ocl(vector<Mat> inputs, vector<cl_mem> weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
     int rows = inputs[0].rows;
     int cols = inputs[0].cols;
     Mat conv_out = Mat::zeros(rows - 2 * r, cols - 2 * r, CV_32F);
@@ -181,6 +176,11 @@ int main(int argc, char **argv) {
     vector<Mat> l1_outputs(0);
     int w = 2;
     float *l1_weights = gen_random_weights(w, 1);
+    cl_mem ocl_l1_weights = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
+                                           (w * 2 + 1) * (w * 2 + 1) * sizeof(float), NULL, &err);
+    CHK_ERR(err);
+    err = clEnqueueWriteBuffer(cv.commands, ocl_l1_weights, true, 0, (w * 2 + 1) * (w * 2 + 1) * sizeof(float), l1_weights, 0, NULL, NULL);
+    CHK_ERR(err);
 
     // convolution layer and pooling
     for (int i = 0; i < l1_numoutputs; i++) {
@@ -192,7 +192,7 @@ int main(int argc, char **argv) {
         cout << "layer1 naive time " << t0 << endl;
         
         t0 = timestamp();
-        layer1_ocl(ocl_image, image.rows, image.cols, ocl_out, l1_weights, w, 2, cv, conv);
+        layer1_ocl(ocl_image, image.rows, image.cols, ocl_out, ocl_l1_weights, w, 2, cv, conv);
         t0 = timestamp() - t0;
         cout << "layer1 ocl time " << t0 << endl;
         check_outputs(ocl_out, out);
@@ -201,27 +201,42 @@ int main(int argc, char **argv) {
     }
 
     vector<vector<float *> > l2_weights(0);
+    vector<vector<cl_mem> > ocl_l2_weights(0);
     int l2_numoutputs = 6;
     for (int i = 0; i < l2_numoutputs; ++i) {
         vector<float *> weights(0);
+        vector<cl_mem> ocl_weights(0);
         for (int j = 0; j < l1_numoutputs; ++j) {
             weights.push_back(gen_random_weights(2, l1_numoutputs));
+            cl_mem ocl_weight = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
+                                                (w * 2 + 1) * (w * 2 + 1) * sizeof(float), NULL, &err);
+            CHK_ERR(err);
+            err = clEnqueueWriteBuffer(cv.commands, ocl_weight, true, 0, (w * 2 + 1) * (w * 2 + 1) * sizeof(float), weights.back(), 0, NULL, NULL);
+            CHK_ERR(err);
+            ocl_weights.push_back(ocl_weight);
         }
         l2_weights.push_back(weights);
+        ocl_l2_weights.push_back(ocl_weights);
     }
 
     vector<Mat> l2_outputs(0);
+    vector<Mat> ocl_l2_outputs(0);
     for (vector<float *> weights : l2_weights) {
         double t0 = timestamp();
         Mat out = layer2_compute(l1_outputs, weights, 2, 2);
         t0 = timestamp() - t0;
         cout << "layer2 naive time " << t0 << endl;
-        t0 = timestamp();
+        l2_outputs.push_back(out);
+    }
+    for (vector<cl_mem> weights : ocl_l2_weights) {
+        double t0 = timestamp();
         Mat ocl_out = layer2_ocl(l1_outputs, weights, 2, 2, cv, conv);
         t0 = timestamp() - t0;
         cout << "layer2 ocl time " << t0 << endl;
-        l2_outputs.push_back(ocl_out);
-        check_outputs(ocl_out, out);
+        ocl_l2_outputs.push_back(ocl_out);
+    }
+    for (int i = 0; i < l2_outputs.size(); i++) {
+      check_outputs(ocl_l2_outputs[i], l2_outputs[i]);
     }
 
     // namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.

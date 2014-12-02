@@ -13,20 +13,20 @@
 
 using namespace cv;
 
-void ocl_conv(cl_mem input, int rows, int cols, cl_mem output, float *weights, int r, cl_vars_t cv, cl_kernel conv) {
+void ocl_conv(cl_mem input, int rows, int cols, cl_mem output, cl_mem weights, int r, cl_vars_t cv, cl_kernel conv) {
 
     cl_mem g_Weights;
 
     cl_int err = CL_SUCCESS;
 
-    int weights_size = (r * 2 + 1) * (r * 2 + 1) * sizeof(float);
-    g_Weights = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
-            weights_size, NULL, &err);
-    CHK_ERR(err);
+    // int weights_size = (r * 2 + 1) * (r * 2 + 1) * sizeof(float);
+    // g_Weights = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
+    //         weights_size, NULL, &err);
+    // CHK_ERR(err);
 
-    err = clEnqueueWriteBuffer(cv.commands, g_Weights, true, 0, weights_size,
-            weights, 0, NULL, NULL);
-    CHK_ERR(err);
+    // err = clEnqueueWriteBuffer(cv.commands, g_Weights, true, 0, weights_size,
+    //         weights, 0, NULL, NULL);
+    // CHK_ERR(err);
 
 
     size_t global_work_size[2] = {static_cast<size_t>(rows), static_cast<size_t>(cols)};
@@ -40,7 +40,7 @@ void ocl_conv(cl_mem input, int rows, int cols, cl_mem output, float *weights, i
     err = clSetKernelArg(conv, 1, sizeof(cl_mem), &input);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 2, sizeof(cl_mem), &g_Weights);
+    err = clSetKernelArg(conv, 2, sizeof(cl_mem), &weights);
     CHK_ERR(err);
 
     err = clSetKernelArg(conv, 3, sizeof(int), &rows);
@@ -72,5 +72,5 @@ void ocl_conv(cl_mem input, int rows, int cols, cl_mem output, float *weights, i
     CHK_ERR(err);
 
 
-    clReleaseMemObject(g_Weights);
+    // clReleaseMemObject(g_Weights);
 }
