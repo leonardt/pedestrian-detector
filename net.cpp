@@ -50,19 +50,16 @@ void layer1_compute(Mat input, Mat output, float *weights, int r, int s) {
     max_pool(conv_out, output, s);
 }
 
-void layer1_ocl(cl_mem input, int rows, int cols, Mat output, cl_mem weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
+void layer1_ocl(cl_mem input, int rows, int cols, cl_mem output, cl_mem weights, int r, int s, cl_vars_t cv, cl_kernel conv, cl_kernel pool) {
     cl_int err = CL_SUCCESS;
-    Mat conv_out = Mat::zeros(rows - 2 * r, cols - 2 * r, CV_32F);
-    cl_mem g_Output = clCreateBuffer(cv.context, CL_MEM_READ_WRITE,
-            conv_out.rows * conv_out.cols * sizeof(float), NULL, &err);
+    // Mat conv_out = Mat::zeros(rows - 2 * r, cols - 2 * r, CV_32F);
+    cl_mem conv_out = clCreateBuffer(cv.context, CL_MEM_READ_WRITE,
+                                     (rows - 2 * r) * (cols - 2 * r)
+                                     * sizeof(float), NULL, &err);
     CHK_ERR(err);
-    ocl_conv(input, rows, cols, g_Output, weights, r, cv, conv);
-    err = clEnqueueReadBuffer(cv.commands, g_Output, true, 0, conv_out.rows * conv_out.cols * sizeof(float),
-            (float*)conv_out.data, 0, NULL, NULL);
-    CHK_ERR(err);
-    err = clFinish(cv.commands);
-    CHK_ERR(err);
-    max_pool(conv_out, output, s);
+    ocl_conv(input, rows, cols, conv_out, weights, r, cv, conv);
+    cl_max_pool(conv_out, cols - 2 * r, (rows - 2 * r) / 2, (cols - 2 * r) / 2, output, s, cv, pool);
+
 }
 
 Mat layer2_compute(vector<Mat> inputs, vector<float *> weights, int r, int s) {
@@ -153,16 +150,27 @@ int main(int argc, char **argv) {
     std::string conv_kernel_file =
             std::string("./src/conv/conv.cl");
 
+    std::string max_pool_kernel_str;
+    std::string max_pool_name_str =
+            std::string("max_pool");
+    std::string max_pool_kernel_file =
+            std::string("./src/conv/conv.cl");
+
     cl_vars_t cv;
     cl_kernel conv;
+    cl_kernel pool;
 
     readFile(conv_kernel_file,
             conv_kernel_str);
 
     initialize_ocl(cv);
 
+    readFile(max_pool_kernel_file,
+            max_pool_kernel_str);
     compile_ocl_program(conv, cv, conv_kernel_str.c_str(),
             conv_name_str.c_str());
+    compile_ocl_program(pool, cv, max_pool_kernel_str.c_str(),
+            max_pool_name_str.c_str());
 
     cl_int err = CL_SUCCESS;
     cl_mem ocl_image = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
@@ -184,17 +192,26 @@ int main(int argc, char **argv) {
 
     // convolution layer and pooling
     for (int i = 0; i < l1_numoutputs; i++) {
-        Mat out = Mat::zeros((image.rows - 2 * w) / 2, (image.cols - 2 * w) / 2, CV_32F);
         Mat ocl_out = Mat::zeros((image.rows - 2 * w) / 2, (image.cols - 2 * w) / 2, CV_32F);
+        Mat out = Mat::zeros((image.rows - 2 * w) / 2, (image.cols - 2 * w) / 2, CV_32F);
         double t0 = timestamp();
         layer1_compute(image, out, l1_weights, w, 2);
         t0 = timestamp() - t0;
         cout << "layer1 naive time " << t0 << endl;
         
+        cl_mem ocl_out_buf = clCreateBuffer(cv.context, CL_MEM_READ_WRITE,
+                out.rows * out.cols * sizeof(float), NULL, &err);
+        CHK_ERR(err);
         t0 = timestamp();
-        layer1_ocl(ocl_image, image.rows, image.cols, ocl_out, ocl_l1_weights, w, 2, cv, conv);
+        layer1_ocl(ocl_image, image.rows, image.cols, ocl_out_buf,
+                   ocl_l1_weights, w, 2, cv, conv, pool);
         t0 = timestamp() - t0;
         cout << "layer1 ocl time " << t0 << endl;
+        err = clEnqueueReadBuffer(cv.commands, ocl_out_buf, true, 0,
+                                  out.rows * out.cols * sizeof(float),
+                                  (float*)ocl_out.data, 0, NULL,
+                                  NULL);
+        CHK_ERR(err);
         check_outputs(ocl_out, out);
         
         l1_outputs.push_back(ocl_out);

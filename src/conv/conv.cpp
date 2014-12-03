@@ -19,16 +19,6 @@ void ocl_conv(cl_mem input, int rows, int cols, cl_mem output, cl_mem weights, i
 
     cl_int err = CL_SUCCESS;
 
-    // int weights_size = (r * 2 + 1) * (r * 2 + 1) * sizeof(float);
-    // g_Weights = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
-    //         weights_size, NULL, &err);
-    // CHK_ERR(err);
-
-    // err = clEnqueueWriteBuffer(cv.commands, g_Weights, true, 0, weights_size,
-    //         weights, 0, NULL, NULL);
-    // CHK_ERR(err);
-
-
     size_t global_work_size[2] = {static_cast<size_t>(rows), static_cast<size_t>(cols)};
     size_t local_work_size[2] = {static_cast<size_t>(rows), static_cast<size_t>(cols)};
 
@@ -70,7 +60,47 @@ void ocl_conv(cl_mem input, int rows, int cols, cl_mem output, cl_mem weights, i
     /* Block until all queued OpenCL commands in command-queue are completed */
     err = clFinish(cv.commands);
     CHK_ERR(err);
+}
+
+void cl_max_pool(cl_mem input, int in_cols, int rows, int cols, cl_mem output, int s, cl_vars_t cv, cl_kernel conv) {
+
+    cl_mem g_Weights;
+
+    cl_int err = CL_SUCCESS;
+
+    size_t global_work_size[2] = {static_cast<size_t>(rows), static_cast<size_t>(cols)};
+    size_t local_work_size[2] = {static_cast<size_t>(rows), static_cast<size_t>(cols)};
+
+    /* Set kernel arguments */
+
+    err = clSetKernelArg(conv, 0, sizeof(cl_mem), &output);
+    CHK_ERR(err);
+
+    err = clSetKernelArg(conv, 1, sizeof(cl_mem), &input);
+    CHK_ERR(err);
+
+    err = clSetKernelArg(conv, 2, sizeof(int), &in_cols);
+    CHK_ERR(err);
+
+    err = clSetKernelArg(conv, 3, sizeof(int), &s);
+    CHK_ERR(err);
+
+    /* Enqueue a command to execute the matmul kernel on the device associated with the
+    * command queue. */
+    err = clEnqueueNDRangeKernel(cv.commands,
+            conv,
+            2, //2 work dimensions
+            NULL,
+            global_work_size,
+            NULL,
+            0,
+            NULL,
+            NULL
+    );
+    CHK_ERR(err);
 
 
-    // clReleaseMemObject(g_Weights);
+    /* Block until all queued OpenCL commands in command-queue are completed */
+    err = clFinish(cv.commands);
+    CHK_ERR(err);
 }

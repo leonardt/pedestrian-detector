@@ -1,6 +1,5 @@
 __kernel void conv(__global float *Output, __global float *Input, __global float *Weights, 
-	 int rows, int cols, int r)
-{
+	 int rows, int cols, int r) {
 
   // weights is passed in, read only, read by all work items
   // optimization: load weights into shared memory
@@ -36,4 +35,22 @@ __kernel void conv(__global float *Output, __global float *Input, __global float
     }
     Output[(i - r) * (cols - 2 * r) + (j - r)] += sum;
   }
+}
+
+__kernel void max_pool(__global float *Output, __global float *Input, int cols, int s) {
+
+  int i = get_global_id(0);
+  int j = get_global_id(1);
+
+  float elt = FLT_MIN;
+  
+  for (int ii = i * s; ii < (i + 1) * s; ii++) {
+    for (int jj = j * s; jj < (j + 1) * s; jj++) {
+      float curr = Input[ii * cols + jj];
+      if (curr > elt) {
+        elt = curr;
+      }
+    }
+  }
+  Output[i * get_global_size(1) + j] = elt;
 }
