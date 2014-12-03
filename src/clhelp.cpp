@@ -14,8 +14,15 @@ void initialize_ocl(cl_vars_t& cv)
   cv.err = clGetPlatformIDs(1, &(cv.platform), &(cv.platforms));
   CHK_ERR(cv.err);
 
-  cv.err = clGetDeviceIDs(cv.platform, CL_DEVICE_TYPE_GPU, 1, &(cv.device_id), NULL);
+  cl_device_id *device_ids = new cl_device_id[2];
+  cl_uint num_devices;
+  cv.err = clGetDeviceIDs(cv.platform, CL_DEVICE_TYPE_GPU, 2, device_ids, &num_devices);
   CHK_ERR(cv.err);
+  if (num_devices > 1) {
+    cv.device_id = device_ids[1];
+  } else {
+    cv.device_id = device_ids[0];
+  }
 
   cv.context = clCreateContext(0, 1, &(cv.device_id), NULL, NULL, &(cv.err));
   CHK_ERR(cv.err);

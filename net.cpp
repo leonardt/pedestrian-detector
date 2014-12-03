@@ -5,31 +5,34 @@
 #include <random>
 #include "src/conv.cpp"
 #include "src/serial.cpp"
+// #include "src/types.cpp"
 #include <cstdlib>
 #include <cstdlib>
 
 using namespace cv;
 using namespace std;
 
-void layer1_ocl(cl_mem input, int rows, int cols, cl_mem output, cl_mem weights, int r, int s, cl_vars_t cv, cl_kernel conv, cl_kernel pool) {
+void layer1_ocl(GpuMat input, cl_mem output, cl_mem weights, int r, int s, cl_vars_t cv, cl_kernel conv, cl_kernel pool) {
     cl_int err = CL_SUCCESS;
     cl_mem conv_out = clCreateBuffer(cv.context, CL_MEM_READ_WRITE,
-                                     (rows - 2 * r) * (cols - 2 * r)
+                                     (input.rows - 2 * r) * (input.cols - 2 * r)
                                      * sizeof(float), NULL, &err);
     CHK_ERR(err);
-    ocl_conv(input, rows, cols, conv_out, weights, r, cv, conv);
-    cl_max_pool(conv_out, cols - 2 * r, (rows - 2 * r) / 2, (cols - 2 * r) / 2, output, s, cv, pool);
+    ocl_conv(input, conv_out, weights, r, cv, conv);
+    cl_max_pool(conv_out, input.cols - 2 * r, (input.rows - 2 * r) / 2, (input.cols - 2 * r) / 2, output, s, cv, pool);
 
 }
 
-Mat layer2_ocl(vector<cl_mem> inputs, int rows, int cols, vector<cl_mem> weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
+Mat layer2_ocl(vector<GpuMat> inputs, vector<cl_mem> weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
+  int rows = inputs[0].rows;
+  int cols = inputs[0].cols;
     Mat conv_out = Mat::zeros(rows - 2 * r, cols - 2 * r, CV_32F);
     cl_int err = CL_SUCCESS;
     cl_mem g_Output = clCreateBuffer(cv.context, CL_MEM_READ_WRITE,
             conv_out.rows * conv_out.cols * sizeof(float), NULL, &err);
     CHK_ERR(err);
     for (size_t i = 0; i < weights.size(); ++i) {
-        ocl_conv(inputs[i], rows, cols, g_Output, weights[i], r, cv, conv);
+        ocl_conv(inputs[i], g_Output, weights[i], r, cv, conv);
     }
     err = clEnqueueReadBuffer(cv.commands, g_Output, true, 0, conv_out.rows * conv_out.cols * sizeof(float),
             (float*)conv_out.data, 0, NULL, NULL);
@@ -91,19 +94,11 @@ int main(int argc, char **argv) {
 
     cl_int err = CL_SUCCESS;
 
-    int image_size = image.rows * image.cols * sizeof(float);
-    
-    cl_mem ocl_image = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
-                                      image_size, NULL, &err);
-    CHK_ERR(err);
-    err = clEnqueueWriteBuffer(cv.commands, ocl_image, true, 0,
-                               image_size, (float*)image.data, 0,
-                               NULL, NULL);
-    CHK_ERR(err);
+    GpuMat ocl_image = GpuMat(image, cv);
 
     int l1_numoutputs = 4;
-    vector<Mat> l1_outputs(0);
-    vector<cl_mem> l1_ocl_outputs(0);
+    vector<Mat> l1_outputs;
+    vector<GpuMat> l1_ocl_outputs;
     int w = 2;
     float *l1_weights = gen_random_weights(w, 1);
     cl_mem ocl_l1_weights = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
@@ -129,7 +124,7 @@ int main(int argc, char **argv) {
                 out.rows * out.cols * sizeof(float), NULL, &err);
         CHK_ERR(err);
         t0 = timestamp();
-        layer1_ocl(ocl_image, image.rows, image.cols, ocl_out_buf,
+        layer1_ocl(ocl_image, ocl_out_buf,
                    ocl_l1_weights, w, 2, cv, conv, pool);
         t0 = timestamp() - t0;
         cout << "layer1 ocl time " << t0 << endl;
@@ -141,7 +136,7 @@ int main(int argc, char **argv) {
         check_outputs(ocl_out, out);
         
         l1_outputs.push_back(out);
-        l1_ocl_outputs.push_back(ocl_out_buf);
+        l1_ocl_outputs.push_back(GpuMat(ocl_out_buf, out.rows, out.cols));
     }
 
     vector<vector<float *> > l2_weights(0);
@@ -176,8 +171,7 @@ int main(int argc, char **argv) {
     }
     for (vector<cl_mem> weights : ocl_l2_weights) {
         double t0 = timestamp();
-        Mat ocl_out = layer2_ocl(l1_ocl_outputs, (image.rows - 2 * w) / 2,
-                                 (image.cols - 2 * w) / 2, weights, 2,
+        Mat ocl_out = layer2_ocl(l1_ocl_outputs, weights, 2,
                                  2, cv, conv);
         t0 = timestamp() - t0;
         cout << "layer2 ocl time " << t0 << endl;

@@ -5,38 +5,38 @@
 #include <cassert>
 #include <cmath>
 
-#include "clhelp.h"
+// #include "clhelp.h"
+#include "types.cpp"
 //#include "convolution.h"
+#include <iostream>
 
 
 #include <opencv2/core/core.hpp>
 
 using namespace cv;
 
-void ocl_conv(cl_mem input, int rows, int cols, cl_mem output, cl_mem weights, int r, cl_vars_t cv, cl_kernel conv) {
-
-    cl_mem g_Weights;
+void ocl_conv(GpuMat input, cl_mem output, cl_mem weights, int r, cl_vars_t cv, cl_kernel conv) {
 
     cl_int err = CL_SUCCESS;
 
-    size_t global_work_size[2] = {static_cast<size_t>(rows), static_cast<size_t>(cols)};
-    size_t local_work_size[2] = {static_cast<size_t>(rows), static_cast<size_t>(cols)};
+    size_t global_work_size[2] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols)};
+    size_t local_work_size[2] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols)};
 
     /* Set kernel arguments */
 
     err = clSetKernelArg(conv, 0, sizeof(cl_mem), &output);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 1, sizeof(cl_mem), &input);
+    err = clSetKernelArg(conv, 1, sizeof(cl_mem), &input.buf);
     CHK_ERR(err);
 
     err = clSetKernelArg(conv, 2, sizeof(cl_mem), &weights);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 3, sizeof(int), &rows);
+    err = clSetKernelArg(conv, 3, sizeof(int), &input.rows);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 4, sizeof(int), &cols);
+    err = clSetKernelArg(conv, 4, sizeof(int), &input.cols);
     CHK_ERR(err);
 
     err = clSetKernelArg(conv, 5, sizeof(int), &r);
@@ -49,7 +49,7 @@ void ocl_conv(cl_mem input, int rows, int cols, cl_mem output, cl_mem weights, i
             2, //2 work dimensions
             NULL,
             global_work_size,
-            NULL,
+            local_work_size,
             0,
             NULL,
             NULL
@@ -63,8 +63,6 @@ void ocl_conv(cl_mem input, int rows, int cols, cl_mem output, cl_mem weights, i
 }
 
 void cl_max_pool(cl_mem input, int in_cols, int rows, int cols, cl_mem output, int s, cl_vars_t cv, cl_kernel conv) {
-
-    cl_mem g_Weights;
 
     cl_int err = CL_SUCCESS;
 
