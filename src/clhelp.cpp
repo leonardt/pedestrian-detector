@@ -7,6 +7,8 @@
 
 #include "clhelp.h"
 
+using namespace std;
+
 void initialize_ocl(cl_vars_t& cv)
 {
   cv.err = clGetPlatformIDs(1, &(cv.platform), &(cv.platforms));
@@ -311,3 +313,11 @@ std::string reportOCLError(cl_int err)
     }
   return stream.str();
  }
+
+cl_kernel build_kernel(string kernel_name, string kernel_file, cl_vars_t cv) {
+  cl_kernel kernel;
+  string kernel_str;
+  readFile(kernel_file, kernel_str);
+  compile_ocl_program(kernel, cv, kernel_str.c_str(), kernel_name.c_str());
+  return kernel;
+}

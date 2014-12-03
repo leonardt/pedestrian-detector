@@ -3,7 +3,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
 #include <random>
-#include "src/conv/conv.cpp"
+#include "src/conv.cpp"
 #include "src/serial.cpp"
 #include <cstdlib>
 #include <cstdlib>
@@ -28,7 +28,7 @@ Mat layer2_ocl(vector<cl_mem> inputs, int rows, int cols, vector<cl_mem> weights
     cl_mem g_Output = clCreateBuffer(cv.context, CL_MEM_READ_WRITE,
             conv_out.rows * conv_out.cols * sizeof(float), NULL, &err);
     CHK_ERR(err);
-    for (int i = 0; i < weights.size(); ++i) {
+    for (size_t i = 0; i < weights.size(); ++i) {
         ocl_conv(inputs[i], rows, cols, g_Output, weights[i], r, cv, conv);
     }
     err = clEnqueueReadBuffer(cv.commands, g_Output, true, 0, conv_out.rows * conv_out.cols * sizeof(float),
@@ -83,41 +83,22 @@ int main(int argc, char **argv) {
 
     // cout << "img_data = " << endl << " " << image << endl << endl;
 
-    std::string conv_kernel_str;
-
-    std::string conv_name_str =
-            std::string("conv");
-    std::string conv_kernel_file =
-            std::string("./src/conv/conv.cl");
-
-    std::string max_pool_kernel_str;
-    std::string max_pool_name_str =
-            std::string("max_pool");
-    std::string max_pool_kernel_file =
-            std::string("./src/conv/conv.cl");
-
     cl_vars_t cv;
-    cl_kernel conv;
-    cl_kernel pool;
-
-    readFile(conv_kernel_file,
-            conv_kernel_str);
-
     initialize_ocl(cv);
 
-    readFile(max_pool_kernel_file,
-            max_pool_kernel_str);
-    compile_ocl_program(conv, cv, conv_kernel_str.c_str(),
-            conv_name_str.c_str());
-    compile_ocl_program(pool, cv, max_pool_kernel_str.c_str(),
-            max_pool_name_str.c_str());
+    cl_kernel conv = build_kernel(string("conv"), string("./src/kernels.cl"), cv);
+    cl_kernel pool = build_kernel(string("max_pool"), string("./src/kernels.cl"), cv);
 
     cl_int err = CL_SUCCESS;
+
+    int image_size = image.rows * image.cols * sizeof(float);
+    
     cl_mem ocl_image = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
-            image.rows * image.cols * sizeof(float), NULL, &err);
+                                      image_size, NULL, &err);
     CHK_ERR(err);
-    err = clEnqueueWriteBuffer(cv.commands, ocl_image, true, 0, image.rows * image.cols * sizeof(float),
-            (float*)image.data, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(cv.commands, ocl_image, true, 0,
+                               image_size, (float*)image.data, 0,
+                               NULL, NULL);
     CHK_ERR(err);
 
     int l1_numoutputs = 4;
@@ -126,9 +107,13 @@ int main(int argc, char **argv) {
     int w = 2;
     float *l1_weights = gen_random_weights(w, 1);
     cl_mem ocl_l1_weights = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
-                                           (w * 2 + 1) * (w * 2 + 1) * sizeof(float), NULL, &err);
+                                           (w * 2 + 1) * (w * 2 + 1) *
+                                           sizeof(float), NULL, &err);
     CHK_ERR(err);
-    err = clEnqueueWriteBuffer(cv.commands, ocl_l1_weights, true, 0, (w * 2 + 1) * (w * 2 + 1) * sizeof(float), l1_weights, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(cv.commands, ocl_l1_weights, true, 0,
+                               (w * 2 + 1) * (w * 2 + 1) *
+                               sizeof(float), l1_weights, 0, NULL,
+                               NULL);
     CHK_ERR(err);
 
     // convolution layer and pooling
@@ -170,7 +155,9 @@ int main(int argc, char **argv) {
             cl_mem ocl_weight = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
                                                 (w * 2 + 1) * (w * 2 + 1) * sizeof(float), NULL, &err);
             CHK_ERR(err);
-            err = clEnqueueWriteBuffer(cv.commands, ocl_weight, true, 0, (w * 2 + 1) * (w * 2 + 1) * sizeof(float), weights.back(), 0, NULL, NULL);
+            err = clEnqueueWriteBuffer(cv.commands, ocl_weight, true, 0, 
+                                       (w * 2 + 1) * (w * 2 + 1) * sizeof(float), 
+                                       weights.back(), 0, NULL, NULL);
             CHK_ERR(err);
             ocl_weights.push_back(ocl_weight);
         }
@@ -196,16 +183,11 @@ int main(int argc, char **argv) {
         cout << "layer2 ocl time " << t0 << endl;
         ocl_l2_outputs.push_back(ocl_out);
     }
-    for (int i = 0; i < l2_outputs.size(); i++) {
+    for (size_t i = 0; i < l2_outputs.size(); i++) {
       check_outputs(ocl_l2_outputs[i], l2_outputs[i]);
     }
 
-    // namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.
-    // imshow( "Display window", image );                   // Show our image inside it.
-
-    // waitKey(0);                                          // Wait for a keystroke in the window
     cout << "PASSED" << endl;
-    uninitialize_ocl(cv);
     
     return 0;
 }

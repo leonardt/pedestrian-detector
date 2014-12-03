@@ -59,4 +59,5 @@ void compile_ocl_program(std::map<std::string, cl_kernel> &kernels,
 
 void readFile(std::string& fileName, std::string &out); 
 double timestamp();
+cl_kernel build_kernel(std::string kernel_name, std::string kernel_file, cl_vars_t cv);
 #endif
