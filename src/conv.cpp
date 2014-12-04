@@ -15,12 +15,12 @@
 
 using namespace cv;
 
-void ocl_conv(GpuMat input, cl_mem output, cl_mem weights, int r, cl_vars_t cv, cl_kernel conv) {
+void ocl_conv(GpuBatch input, cl_mem output, cl_mem weights, int r, cl_vars_t cv, cl_kernel conv) {
 
     cl_int err = CL_SUCCESS;
 
-    size_t global_work_size[2] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols)};
-    size_t local_work_size[2] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols)};
+    size_t global_work_size[3] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols), static_cast<size_t>(input.batch_size)};
+    size_t local_work_size[3] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols), 1};
 
     /* Set kernel arguments */
 
@@ -42,11 +42,14 @@ void ocl_conv(GpuMat input, cl_mem output, cl_mem weights, int r, cl_vars_t cv, 
     err = clSetKernelArg(conv, 5, sizeof(int), &r);
     CHK_ERR(err);
 
+    err = clSetKernelArg(conv, 6, sizeof(float) * input.rows * input.cols, NULL);
+    CHK_ERR(err);
+
     /* Enqueue a command to execute the matmul kernel on the device associated with the
     * command queue. */
     err = clEnqueueNDRangeKernel(cv.commands,
             conv,
-            2, //2 work dimensions
+            3, //2 work dimensions
             NULL,
             global_work_size,
             local_work_size,
@@ -62,35 +65,38 @@ void ocl_conv(GpuMat input, cl_mem output, cl_mem weights, int r, cl_vars_t cv, 
     CHK_ERR(err);
 }
 
-void cl_max_pool(cl_mem input, int in_cols, int rows, int cols, cl_mem output, int s, cl_vars_t cv, cl_kernel conv) {
+void cl_max_pool(cl_mem input, int in_rows, int in_cols, GpuBatch output, int s, cl_vars_t cv, cl_kernel conv) {
 
     cl_int err = CL_SUCCESS;
 
-    size_t global_work_size[2] = {static_cast<size_t>(rows), static_cast<size_t>(cols)};
-    size_t local_work_size[2] = {static_cast<size_t>(rows), static_cast<size_t>(cols)};
+    size_t global_work_size[3] = {static_cast<size_t>(output.rows), static_cast<size_t>(output.cols), static_cast<size_t>(output.batch_size)};
+    size_t local_work_size[3] = {static_cast<size_t>(output.rows), static_cast<size_t>(output.cols), 1};
 
     /* Set kernel arguments */
 
-    err = clSetKernelArg(conv, 0, sizeof(cl_mem), &output);
+    err = clSetKernelArg(conv, 0, sizeof(cl_mem), &output.buf);
     CHK_ERR(err);
 
     err = clSetKernelArg(conv, 1, sizeof(cl_mem), &input);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 2, sizeof(int), &in_cols);
+    err = clSetKernelArg(conv, 2, sizeof(int), &in_rows);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 3, sizeof(int), &s);
+    err = clSetKernelArg(conv, 3, sizeof(int), &in_cols);
+    CHK_ERR(err);
+
+    err = clSetKernelArg(conv, 4, sizeof(int), &s);
     CHK_ERR(err);
 
     /* Enqueue a command to execute the matmul kernel on the device associated with the
     * command queue. */
     err = clEnqueueNDRangeKernel(cv.commands,
             conv,
-            2, //2 work dimensions
+            3, //2 work dimensions
             NULL,
             global_work_size,
-            NULL,
+            local_work_size,
             0,
             NULL,
             NULL

@@ -1,5 +1,5 @@
 __kernel void conv(__global float *Output, __global float *Input, __global float *Weights, 
-	 int rows, int cols, int r) {
+	 int rows, int cols, int r, __local float* buf) {
 
   // weights is passed in, read only, read by all work items
   // optimization: load weights into shared memory
@@ -19,6 +19,9 @@ __kernel void conv(__global float *Output, __global float *Input, __global float
   // Retrieve global index values for each dimension. These are used to index into the matrices
   int i = get_global_id(0);
   int j = get_global_id(1);
+  int z = get_global_id(2);
+  buf[i * cols + j] = Input[z * rows * cols + i * cols + j];
+  barrier(CLK_LOCAL_MEM_FENCE);
 
   if ((i >= r && i < rows - r) && (j >= r && j < cols - r)) {
 
@@ -28,29 +31,30 @@ __kernel void conv(__global float *Output, __global float *Input, __global float
 
     for (int ii = -r; ii <= r; ii++) {
       for (int jj = -r; jj <= r; jj++) {
-        elt = Input[(i + ii) * cols + j + jj];
+        elt = buf[(i + ii) * cols + j + jj];
         weight = Weights[(ii + r) * (2 * r + 1) + jj + r];
         sum += weight * elt;
       }
     }
-    Output[(i - r) * (cols - 2 * r) + (j - r)] += sum;
+    Output[z * (rows - 2 * r) * (cols - 2 * r) + (i - r) * (cols - 2 * r) + (j - r)] += sum;
   }
 }
 
-__kernel void max_pool(__global float *Output, __global float *Input, int cols, int s) {
+__kernel void max_pool(__global float *Output, __global float *Input, int rows, int cols, int s) {
 
   int i = get_global_id(0);
   int j = get_global_id(1);
+  int z = get_global_id(2);
 
   float elt = FLT_MIN;
   
   for (int ii = i * s; ii < (i + 1) * s; ii++) {
     for (int jj = j * s; jj < (j + 1) * s; jj++) {
-      float curr = Input[ii * cols + jj];
+      float curr = Input[z * rows * cols + ii * cols + jj];
       if (curr > elt) {
         elt = curr;
       }
     }
   }
-  Output[i * get_global_size(1) + j] = elt;
+  Output[z * get_global_size(0) * get_global_size(1) + i * get_global_size(1) + j] = elt;
 }
