@@ -143,12 +143,12 @@ int main(int argc, char **argv) {
     vector<vector<cl_mem> > ocl_l2_weights(0);
     int l2_numoutputs = 6;
     for (int i = 0; i < l2_numoutputs; ++i) {
-        vector<float *> weights(0);
-        vector<cl_mem> ocl_weights(0);
+        vector<float *> weights;
+        vector<cl_mem> ocl_weights;
         for (int j = 0; j < l1_numoutputs; ++j) {
             weights.push_back(gen_random_weights(2, l1_numoutputs));
             cl_mem ocl_weight = clCreateBuffer(cv.context, CL_MEM_READ_ONLY,
-                                                (w * 2 + 1) * (w * 2 + 1) * sizeof(float), NULL, &err);
+                                               (w * 2 + 1) * (w * 2 + 1) * sizeof(float), NULL, &err);
             CHK_ERR(err);
             err = clEnqueueWriteBuffer(cv.commands, ocl_weight, true, 0, 
                                        (w * 2 + 1) * (w * 2 + 1) * sizeof(float), 
@@ -160,8 +160,8 @@ int main(int argc, char **argv) {
         ocl_l2_weights.push_back(ocl_weights);
     }
 
-    vector<Mat> l2_outputs(0);
-    vector<Mat> ocl_l2_outputs(0);
+    vector<Mat> l2_outputs;
+    vector<Mat> ocl_l2_outputs;
     for (vector<float *> weights : l2_weights) {
         double t0 = timestamp();
         Mat out = layer2_compute(l1_outputs, weights, 2, 2);
