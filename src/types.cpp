@@ -56,7 +56,7 @@ class Weights {
     for (int n = 0; n < num_sets; n++) {
       for (int z = 0; z < depth; z++) {
         for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < (cols); j++) {
+            for (int j = 0; j < cols; j++) {
                 data[n * depth * rows * cols + z * rows * cols + i * cols + j] = (
                     (float) rand() / (float) RAND_MAX) * (range * 2 + 1) - range;
             }
@@ -76,10 +76,10 @@ class GpuWeights {
     int num_sets;
   GpuWeights(Weights w, cl_vars_t cv) {
     cl_int err = CL_SUCCESS;
-    buf = clCreateBuffer(cv.context, CL_MEM_READ_ONLY, w.rows * w.cols * w.num_sets *
+    buf = clCreateBuffer(cv.context, CL_MEM_READ_ONLY, w.depth * w.rows * w.cols * w.num_sets *
         sizeof(float), NULL, &err);
     CHK_ERR(err);
-    err = clEnqueueWriteBuffer(cv.commands, buf, true, 0, w.rows * w.cols * w.num_sets *
+    err = clEnqueueWriteBuffer(cv.commands, buf, true, 0, w.depth * w.rows * w.cols * w.num_sets *
         sizeof(float), w.data, 0, NULL, NULL);
     CHK_ERR(err);
     depth = w.depth;

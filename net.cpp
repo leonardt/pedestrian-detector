@@ -12,7 +12,7 @@
 using namespace cv;
 using namespace std;
 
-void layer1_ocl(GpuBatch input, GpuBatch output, GpuWeights weights, int r, int s, cl_vars_t cv, cl_kernel conv, cl_kernel pool) {
+void layer1_ocl(GpuBatch input, GpuBatch output, GpuWeights weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
     /* cl_int err = CL_SUCCESS; */
     /* cl_mem conv_out = clCreateBuffer(cv.context, CL_MEM_READ_WRITE, */
     /*                                  input.batch_size * (input.rows - 2 * r) * (input.cols - 2 * r) */
@@ -83,7 +83,6 @@ int main(int argc, char **argv) {
     initialize_ocl(cv);
 
     cl_kernel conv = build_kernel(string("conv"), string("./src/kernels.cl"), cv);
-    cl_kernel pool = build_kernel(string("max_pool"), string("./src/kernels.cl"), cv);
 
     cl_int err = CL_SUCCESS;
     Mat image, int_image;
@@ -106,8 +105,6 @@ int main(int argc, char **argv) {
     GpuBatch ocl_images = GpuBatch(images, cv);
 
     int l1_numoutputs = 20;
-    /* vector<Batch> l1_outputs; */
-    /* vector<GpuBatch> l1_ocl_outputs; */
     int w = 2;
     Weights l1_weights(l1_numoutputs, w, 1, 1);
     GpuWeights l1_ocl_weights(l1_weights, cv);
@@ -124,7 +121,7 @@ int main(int argc, char **argv) {
     GpuBatch ocl_out_buf = GpuBatch(ocl_out, cv);
     double l1_ocl_t = timestamp();
     layer1_ocl(ocl_images, ocl_out_buf,
-               l1_ocl_weights, w, 2, cv, conv, pool);
+               l1_ocl_weights, w, 2, cv, conv);
     l1_ocl_t = timestamp() - l1_ocl_t;
     err = clEnqueueReadBuffer(cv.commands, ocl_out_buf.buf, true, 0,
                               batch_size * ocl_out.rows * ocl_out.cols *
@@ -138,57 +135,37 @@ int main(int argc, char **argv) {
     check_outputs(ocl_out, l1_output);
     cout << "layer1 naive time " << l1_t << endl;
     cout << "layer1 ocl time " << l1_ocl_t << endl;
+    clReleaseMemObject(ocl_images.buf);
 
-    /* vector<vector<cl_mem> > ocl_l2_weights; */
-    /* int l2_numoutputs = 20; */
-    /* Weights l2_weights(2, l2_numoutputs, l1_numoutputs); */
-    /*     vector<float *> weights(0); */
-    /*     vector<cl_mem> ocl_weights(0); */
-    /*     for (int j = 0; j < l1_numoutputs; ++j) { */
-    /*         weights.push_back(gen_random_weights(2, l1_numoutputs)); */
-    /*         cl_mem ocl_weight = clCreateBuffer(cv.context, CL_MEM_READ_ONLY, */
-    /*                                             (w * 2 + 1) * (w * 2 + 1) * sizeof(float), NULL, &err); */
-    /*         CHK_ERR(err); */
-    /*         err = clEnqueueWriteBuffer(cv.commands, ocl_weight, true, 0, */ 
-    /*                                    (w * 2 + 1) * (w * 2 + 1) * sizeof(float), */ 
-    /*                                    weights.back(), 0, NULL, NULL); */
-    /*         CHK_ERR(err); */
-    /*         ocl_weights.push_back(ocl_weight); */
-    /*     } */
-    /*     l2_weights.push_back(weights); */
-    /*     ocl_l2_weights.push_back(ocl_weights); */
 
-    /* vector<Batch> l2_outputs; */
-    /* vector<Batch> ocl_l2_outputs; */
-    /* double l2_t = 0; */
-    /* double l2_ocl_t = 0; */
-    /* t0 = timestamp(); */
-    /* Batch l2_out(batch_size, (l1_output.rows - 2 * 2) / 2, */ 
-    /*     (l1_output.cols - 2 * 2) / 2, l2_weights.depth); */
-    /* layer2_compute(l1_output, l2_out, l2_weights, 2, 2); */
-    /* l2_t += timestamp() - t0; */
-    /* for (vector<cl_mem> weights : ocl_l2_weights) { */
-    /*     Batch output(l1_ocl_outputs[0].batch_size, */ 
-    /*         (l1_ocl_outputs[0].rows - 2 * 2) / 2, */ 
-    /*         (l1_ocl_outputs[0].cols - 2 * 2) / 2); */
-    /*     GpuBatch gpu_output(output, cv); */
-    /*     double t0 = timestamp(); */
-    /*     layer2_ocl(l1_ocl_outputs, gpu_output, weights, 2, 2, cv, conv, pool); */
-    /*     l2_ocl_t += timestamp() - t0; */
-    /*     err = clEnqueueReadBuffer(cv.commands, gpu_output.buf, true, 0, */ 
-    /*                               output.batch_size * output.rows * output.cols */
-    /*                               * sizeof(float), output.data, 0, NULL, */
-    /*                               NULL); */
-    /*     CHK_ERR(err); */
-    /*     err = clFinish(cv.commands); */
-    /*     CHK_ERR(err); */
-    /*     ocl_l2_outputs.push_back(output); */
-    /* } */
-    /* for (size_t i = 0; i < ocl_l2_outputs.size(); i++) { */
-    /*     check_outputs(ocl_l2_outputs[i], l2_outputs[i]); */
-    /* } */
-    /* cout << "layer2 naive time " << l2_t << endl; */
-    /* cout << "layer2 ocl time " << l2_ocl_t << endl; */
+    int l2_numoutputs = 30;
+    Weights l2_weights(l2_numoutputs, w, l1_numoutputs, l1_numoutputs);
+    GpuWeights l2_ocl_weights(l2_weights, cv);
+
+    Batch l2_out(batch_size, l2_numoutputs, (l1_output.rows - 2 * 2) / 2, 
+        (l1_output.cols - 2 * 2) / 2);
+    double l2_t = timestamp();
+    layer1_compute(l1_output, l2_out, l2_weights, 2, 2);
+    l2_t = timestamp() - l2_t;
+
+    Batch l2_ocl_out = Batch(batch_size, l2_numoutputs,
+        (l1_output.rows - 2 * w) / 2, (l1_output.cols - 2 * w) / 2);
+    GpuBatch l2_ocl_out_buf = GpuBatch(ocl_out, cv);
+    double l2_ocl_t = timestamp();
+    layer1_ocl(ocl_out_buf, l2_ocl_out_buf,
+               l2_ocl_weights, w, 2, cv, conv);
+    l2_ocl_t = timestamp() - l2_ocl_t;
+    err = clEnqueueReadBuffer(cv.commands, l2_ocl_out_buf.buf, true, 0,
+                              batch_size * l2_ocl_out.rows * l2_ocl_out.cols *
+                              l2_ocl_out.depth * sizeof(float),
+                              l2_ocl_out.data, 0, NULL,
+                              NULL);
+    CHK_ERR(err);
+    err = clFinish(cv.commands);
+    CHK_ERR(err);
+    check_outputs(l2_ocl_out, l2_out);
+    cout << "layer2 naive time " << l2_t << endl;
+    cout << "layer2 ocl time " << l2_ocl_t << endl;
 
     cout << "PASSED" << endl;
     

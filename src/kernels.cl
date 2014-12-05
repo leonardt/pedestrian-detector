@@ -46,22 +46,3 @@ __kernel void conv(__global float *output, __global float *Input, __constant flo
     }
   }
 }
-
-__kernel void max_pool(__global float *Output, __global float *Input, int rows, int cols, int s) {
-
-  int i = get_global_id(0);
-  int j = get_global_id(1);
-  int z = get_global_id(2);
-
-  float elt = FLT_MIN;
-  
-  for (int ii = i * s; ii < (i + 1) * s; ii++) {
-    for (int jj = j * s; jj < (j + 1) * s; jj++) {
-      float curr = Input[z * rows * cols + ii * cols + jj];
-      if (curr > elt) {
-        elt = curr;
-      }
-    }
-  }
-  Output[z * get_global_size(0) * get_global_size(1) + i * get_global_size(1) + j] = elt;
-}
