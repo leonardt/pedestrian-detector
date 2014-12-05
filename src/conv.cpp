@@ -15,7 +15,7 @@
 
 using namespace cv;
 
-void ocl_conv(GpuBatch input, cl_mem output, cl_mem weights, int r, cl_vars_t cv, cl_kernel conv) {
+void ocl_conv(GpuBatch input, GpuBatch output, GpuWeights weights, int r, cl_vars_t cv, cl_kernel conv) {
 
     cl_int err = CL_SUCCESS;
 
@@ -24,13 +24,13 @@ void ocl_conv(GpuBatch input, cl_mem output, cl_mem weights, int r, cl_vars_t cv
 
     /* Set kernel arguments */
 
-    err = clSetKernelArg(conv, 0, sizeof(cl_mem), &output);
+    err = clSetKernelArg(conv, 0, sizeof(cl_mem), &output.buf);
     CHK_ERR(err);
 
     err = clSetKernelArg(conv, 1, sizeof(cl_mem), &input.buf);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 2, sizeof(cl_mem), &weights);
+    err = clSetKernelArg(conv, 2, sizeof(cl_mem), &weights.buf);
     CHK_ERR(err);
 
     err = clSetKernelArg(conv, 3, sizeof(int), &input.rows);
@@ -39,10 +39,22 @@ void ocl_conv(GpuBatch input, cl_mem output, cl_mem weights, int r, cl_vars_t cv
     err = clSetKernelArg(conv, 4, sizeof(int), &input.cols);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 5, sizeof(int), &r);
+    err = clSetKernelArg(conv, 5, sizeof(int), &input.depth);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 6, sizeof(float) * input.rows * input.cols, NULL);
+    err = clSetKernelArg(conv, 6, sizeof(int), &r);
+    CHK_ERR(err);
+
+    err = clSetKernelArg(conv, 7, sizeof(int), &r);
+    CHK_ERR(err);
+
+    err = clSetKernelArg(conv, 8, sizeof(int), &weights.num_sets);
+    CHK_ERR(err);
+
+    err = clSetKernelArg(conv, 9, sizeof(float) * input.rows * input.cols * input.depth, NULL);
+    CHK_ERR(err);
+
+    err = clSetKernelArg(conv, 10, sizeof(float) * input.rows * input.cols, NULL);
     CHK_ERR(err);
 
     /* Enqueue a command to execute the matmul kernel on the device associated with the

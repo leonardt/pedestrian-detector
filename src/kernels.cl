@@ -1,42 +1,49 @@
-__kernel void conv(__global float *Output, __global float *Input, __global float *Weights, 
-	 int rows, int cols, int r, __local float* buf) {
-
-  // weights is passed in, read only, read by all work items
-  // optimization: load weights into shared memory
-  // can use constant memory since it's read only
-
-
-  // will want to prefetch into local memory, basically avoid going to global memory
-
-
-
-  // use this serial version as correctness test
-  // start with a naive opencl impl, (use the hw clhelper code)
-  // then slowly add optimizations and make sure it stays correct
-
-  // for input, expect a pointer to matrix of floats, and something about size/dimensions
-
-  // Retrieve global index values for each dimension. These are used to index into the matrices
+__kernel void conv(__global float *output, __global float *Input, __constant float *Weights, 
+	 int rows, int cols, int depth, int r, int s, int num_sets, __local float* buf, __local float* buf2) {
   int i = get_global_id(0);
   int j = get_global_id(1);
   int z = get_global_id(2);
-  buf[i * cols + j] = Input[z * rows * cols + i * cols + j];
+  for (int d = 0; d < depth; d++) {
+    buf[d * rows * cols + i * cols + j] = Input[z * rows * cols * depth + d * rows * cols + i * cols + j];
+  }
   barrier(CLK_LOCAL_MEM_FENCE);
+  for (int n = 0; n < num_sets; n++) {
+    if ((i >= r && i < rows - r) && (j >= r && j < cols - r)) {
+      float elt;
+      float weight;
 
-  if ((i >= r && i < rows - r) && (j >= r && j < cols - r)) {
-
-    float sum = 0.0f;
-    float elt;
-    float weight;
-
-    for (int ii = -r; ii <= r; ii++) {
-      for (int jj = -r; jj <= r; jj++) {
-        elt = buf[(i + ii) * cols + j + jj];
-        weight = Weights[(ii + r) * (2 * r + 1) + jj + r];
-        sum += weight * elt;
+      float sum = 0.0f;
+      for (int d = 0; d < depth; d++) {
+        for (int ii = -r; ii <= r; ii++) {
+          for (int jj = -r; jj <= r; jj++) {
+            elt = buf[d * rows * cols + (i + ii) * cols + j + jj];
+            weight = Weights[n * depth * (2 * r + 1) * (2 * r + 1) + 
+              d * (2 * r + 1) * (2 * r + 1) +
+              (ii + r) * (2 * r + 1) + jj + r];
+            sum += weight * elt;
+          }
+        }
       }
+      buf2[(i - r) * (cols - 2 * r) + (j - r)] = sum;
     }
-    Output[z * (rows - 2 * r) * (cols - 2 * r) + (i - r) * (cols - 2 * r) + (j - r)] += sum;
+    int output_rows = (rows - 2 * r) / s;
+    int output_cols = (cols - 2 * r) / s;
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (i < output_rows && j < output_cols) {
+      float elt = FLT_MIN;
+      for (int ii = i * s; ii < (i + 1) * s; ii++) {
+        for (int jj = j * s; jj < (j + 1) * s; jj++) {
+          float curr = buf2[ii * (cols - 2 * r) + jj];
+          if (curr > elt) {
+            elt = curr;
+          }
+        }
+      }
+      output[z * num_sets * output_rows * output_cols + 
+        n * output_rows * output_cols + 
+        i * output_cols + j] = elt;
+    }
   }
 }
 
