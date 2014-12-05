@@ -5,47 +5,15 @@
 #include <random>
 #include "src/conv.cpp"
 #include "src/serial.cpp"
-// #include "src/types.cpp"
 #include <cstdlib>
 #include <cstdlib>
 
 using namespace cv;
 using namespace std;
 
-void layer1_ocl(GpuBatch input, GpuBatch output, GpuWeights weights, int r, int s, cl_vars_t cv, cl_kernel conv) {
-    /* cl_int err = CL_SUCCESS; */
-    /* cl_mem conv_out = clCreateBuffer(cv.context, CL_MEM_READ_WRITE, */
-    /*                                  input.batch_size * (input.rows - 2 * r) * (input.cols - 2 * r) */
-    /*                                  * sizeof(float), NULL, &err); */
-    /* CHK_ERR(err); */
+void layer1_ocl(GpuBatch input, GpuBatch output, GpuWeights weights,
+                int r, int s, cl_vars_t cv, cl_kernel conv) {
     ocl_conv(input, output, weights, r, cv, conv);
-    // cl_max_pool(conv_out, input.rows - 2 * r, input.cols - 2 * r, output, s, cv, pool);
-}
-
-/* void layer2_ocl(vector<GpuBatch> inputs, GpuBatch output, vector<cl_mem> weights, int r, int s, cl_vars_t cv, cl_kernel conv, cl_kernel pool) { */
-/*   int rows = inputs[0].rows; */
-/*   int cols = inputs[0].cols; */
-/*   cl_int err = CL_SUCCESS; */
-/*   cl_mem conv_out = clCreateBuffer(cv.context, CL_MEM_READ_WRITE, */
-/*                                    inputs[0].batch_size * (rows - 2 * r) * (cols - 2 * r) */
-/*                                    * sizeof(float), NULL, &err); */
-/*   CHK_ERR(err); */
-/*   for (size_t i = 0; i < weights.size(); ++i) { */
-/*       ocl_conv(inputs[i], conv_out, weights[i], r, cv, conv); */
-/*   } */
-/*   cl_max_pool(conv_out, rows - 2 * r, cols - 2 * r, output, s, cv, pool); */
-/* } */
-
-float *gen_random_weights(int radius, int num, float range) {
-    float *weights = new float[num * (radius * 2 + 1) * (radius * 2 + 1)];
-    for (int z = 0; z < num; z++) {
-      for (int i = 0; i < (radius * 2 + 1); i++) {
-          for (int j = 0; j < (radius * 2 + 1); j++) {
-              weights[i * (radius * 2 + 1) + j] = ((float) rand() / (float) RAND_MAX) * (range * 2 + 1) - range;
-          }
-      }
-    }
-    return weights;
 }
 
 void check_outputs(Batch ocl_out, Batch out) {
@@ -138,7 +106,7 @@ int main(int argc, char **argv) {
     clReleaseMemObject(ocl_images.buf);
 
 
-    int l2_numoutputs = 30;
+    int l2_numoutputs = 50;
     Weights l2_weights(l2_numoutputs, w, l1_numoutputs, l1_numoutputs);
     GpuWeights l2_ocl_weights(l2_weights, cv);
 
