@@ -13,4 +13,5 @@ samples/.DS_Store
 samples/lp-right/
 samples/stationary
 samples/ped-dataset*
+samples/*
 .idea
