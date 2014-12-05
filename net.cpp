@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
     clReleaseMemObject(ocl_images.buf);
 
 
-    int l2_numoutputs = 50;
+    int l2_numoutputs = 30;
     Weights l2_weights(l2_numoutputs, w, l1_numoutputs, l1_numoutputs);
     GpuWeights l2_ocl_weights(l2_weights, cv);
 

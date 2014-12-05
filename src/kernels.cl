@@ -1,4 +1,4 @@
-__kernel void conv(__global float *output, __global const float *input, __global const float *weights, 
+__kernel void conv(__global float *output, __global const float *input, __constant float *weights, 
 	                 int rows, int cols, int depth, int r, int s, int num_sets,
                    __local float* buf, __local float* buf2) {
   int i = get_global_id(0);
@@ -15,16 +15,16 @@ __kernel void conv(__global float *output, __global const float *input, __global
   barrier(CLK_LOCAL_MEM_FENCE);
   __global float* output_tmp = &output[z * num_sets * output_rows * output_cols];
   for (int n = 0; n < num_sets; n++) {
-    __global float* weights_set = &weights[n * depth * weight_stride * weight_stride];
+    __constant float* weights_set = &weights[n * depth * weight_stride * weight_stride];
     if ((i >= r && i < rows - r) && (j >= r && j < cols - r)) {
 
       float sum = 0.0f;
       for (int d = 0; d < depth; d++) {
         __local float* buf1_tmp = &buf[d * depth_stride];
-        __global float* weights_tmp = &weights_set[d * weight_stride * weight_stride];
+        __constant float* weights_tmp = &weights_set[d * weight_stride * weight_stride];
         for (int ii = -r; ii <= r; ii++) {
           __local float* buf1_tmp1 = &buf1_tmp[(i + ii) * cols];
-          __global float* weights_tmp1 = &weights_tmp[(ii + r) * weight_stride];
+          __constant float* weights_tmp1 = &weights_tmp[(ii + r) * weight_stride];
           for (int jj = -r; jj <= r; jj++) {
             float elt = buf1_tmp1[j + jj];
             float weight = weights_tmp1[jj + r];
