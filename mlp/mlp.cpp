@@ -7,7 +7,11 @@
 #include <vector>
 #include <iterator>
 #include <math.h> 
-#include <Accelerate/Accelerate.h>
+#ifdef __APPLE__
+#include <Accelerate/Accelerate.h>  //Apple's lapack 
+#else
+#include <clapack.h>		    //C lapack
+#endif
 using namespace std;
 
 class Hidden_Layer {
@@ -68,13 +72,22 @@ int forward_prop(float *input, int input_size, float *weights, int *dim, int dim
 };
 
 
-void softmax(float *input) {
-    /**
+void softmax(float *input, float *output, int n) {
+    /*
      * Softmax function computes softmax of given vector.
+     *	 out[i] = e^(input[i]) / (sum(k=1 to n){e^(input[k])}) for i in input
+     * possible optimization by storing the results of exp() so we only need to call exp() once per input.
      * @param input: the vector to compute on. This would be the intermediate result of the last hidden layer b+Wx.
+     * @param output: the vector to store the result.
+     * @param n: size of input vector
      */
-
-
+    float denom = 0.0;
+    for (int i=0; i<n; i++){
+	denom += exp(input[i]);
+    }
+    for(int i=0; i<n; i++){
+	output[i] = exp(input[i]) / denom;
+    }
 }
 
 int init(){
