@@ -1,47 +1,50 @@
 __kernel void conv(__global float *output, __global const float *input, __constant float *weights, 
-	                 int rows, int cols, int depth, int r, int s, int num_sets, int n,
-                   __local float* buf, __local float* buf2) {
+	           int rows, int cols, int depth, int num_sets, int n, __local float* buf) {
   int i = get_global_id(0);
   int j = get_global_id(1);
   int z = get_global_id(2);
   int depth_stride = rows * cols;
-  int weight_stride = 2 * r + 1;
-  int output_rows = (rows - 2 * r) / s;
-  int output_cols = (cols - 2 * r) / s;
+  int weight_stride = 2 * 2 + 1;
+  int output_rows = (rows - 2 * 2) / 2;
+  int output_cols = (cols - 2 * 2) / 2;
   __global float* output_tmp = &output[z * num_sets * output_rows * output_cols];
-    __constant float* weights_set = &weights[n * depth * weight_stride * weight_stride];
-    float sum = 0.0f;
-    for (int d = 0; d < depth; d++) {
-      buf[i * cols + j] = input[z * depth_stride * depth +
-                                d * depth_stride + i * cols + j];
-      barrier(CLK_LOCAL_MEM_FENCE);
-      if ((i >= r && i < rows - r) && (j >= r && j < cols - r)) {
-        __constant float* weights_tmp = &weights_set[d * weight_stride * weight_stride];
-        for (int ii = -r; ii <= r; ii++) {
-          __local float* buf1_tmp = &buf[(i + ii) * cols];
-          __constant float* weights_tmp1 = &weights_tmp[(ii + r) * weight_stride];
-          for (int jj = -r; jj <= r; jj++) {
-            float elt = buf1_tmp[j + jj];
-            float weight = weights_tmp1[jj + r];
-            sum += weight * elt;
-          }
-        }
-      }
-      barrier(CLK_LOCAL_MEM_FENCE);
-    }
-    if ((i >= r && i < rows - r) && (j >= r && j < cols - r)) {
-      buf2[(i - r) * (cols - 2 * r) + (j - r)] = sum;
-    }
-
+  float sum = 0.0f;
+  for (int d = 0; d < depth; d++) {
+    buf[i * cols + j] = input[z * depth_stride * depth +
+                              d * depth_stride + i * cols + j];
     barrier(CLK_LOCAL_MEM_FENCE);
-    if (i < output_rows && j < output_cols) {
-      float elt = FLT_MIN;
-      for (int ii = i * s; ii < (i + 1) * s; ii++) {
-        __local float *buf2_tmp = &buf2[ii * (cols - 2 * r)];
-        for (int jj = j * s; jj < (j + 1) * s; jj++) {
-          elt = max(elt, buf2_tmp[jj]);
+    if ((i >= 2 && i < rows - 2) && (j >= 2 && j < cols - 2)) {
+      __constant float* weights_tmp = &weights[d * weight_stride * weight_stride];
+      #pragma unroll 
+      for (int ii = -2; ii <= 2; ii++) {
+        __local float* buf1_tmp = &buf[(i + ii) * cols];
+        __constant float* weights_tmp1 = &weights_tmp[(ii + 2) * weight_stride];
+        #pragma unroll 
+        for (int jj = -2; jj <= 2; jj++) {
+          float elt = buf1_tmp[j + jj];
+          float weight = weights_tmp1[jj + 2];
+          sum += weight * elt;
         }
       }
-      output_tmp[n * output_rows * output_cols + i * output_cols + j] = elt;
     }
+    barrier(CLK_LOCAL_MEM_FENCE);
+  }
+  barrier(CLK_LOCAL_MEM_FENCE);
+  if ((i >= 2 && i < rows - 2) && (j >= 2 && j < cols - 2)) {
+    buf[(i - 2) * (cols - 2 * 2) + (j - 2)] = sum;
+  }
+
+  barrier(CLK_LOCAL_MEM_FENCE);
+  if (i < output_rows && j < output_cols) {
+    float elt = FLT_MIN;
+    #pragma unroll 2
+    for (int ii = i * 2; ii < (i + 1) * 2; ii++) {
+      __local float *buf_tmp = &buf[ii * (cols - 2 * 2)];
+      #pragma unroll 2
+      for (int jj = j * 2; jj < (j + 1) * 2; jj++) {
+        elt = max(elt, buf_tmp[jj]);
+      }
+    }
+    output_tmp[n * output_rows * output_cols + i * output_cols + j] = elt;
+  }
 }

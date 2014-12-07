@@ -15,12 +15,16 @@
 
 using namespace cv;
 
-void ocl_conv(GpuBatch input, GpuBatch output, GpuWeights weights, int r, cl_vars_t cv, cl_kernel conv, cl_uint device) {
+void ocl_conv(GpuBatch input, GpuBatch output, vector<GpuWeights> weights_sets, 
+              int r, cl_vars_t cv, cl_kernel conv, cl_uint device) {
   cl_int err = CL_SUCCESS;
-  for (int i = 0; i < weights.num_sets; i++) {
-
-    size_t global_work_size[3] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols), static_cast<size_t>(input.batch_size)};
-    size_t local_work_size[3] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols), 1};
+  for (size_t i = 0; i < weights_sets.size(); i++) {
+    size_t global_work_size[3] = {static_cast<size_t>(input.rows), 
+                                  static_cast<size_t>(input.cols), 
+                                  static_cast<size_t>(input.batch_size)};
+    size_t local_work_size[3] = {static_cast<size_t>(input.rows), 
+                                 static_cast<size_t>(input.cols), 
+                                 1};
 
     /* Set kernel arguments */
 
@@ -30,7 +34,7 @@ void ocl_conv(GpuBatch input, GpuBatch output, GpuWeights weights, int r, cl_var
     err = clSetKernelArg(conv, 1, sizeof(cl_mem), &input.buf);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 2, sizeof(cl_mem), &weights.buf);
+    err = clSetKernelArg(conv, 2, sizeof(cl_mem), &weights_sets[i].buf);
     CHK_ERR(err);
 
     err = clSetKernelArg(conv, 3, sizeof(int), &input.rows);
@@ -42,22 +46,14 @@ void ocl_conv(GpuBatch input, GpuBatch output, GpuWeights weights, int r, cl_var
     err = clSetKernelArg(conv, 5, sizeof(int), &input.depth);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 6, sizeof(int), &r);
+    int size = weights_sets.size();
+    err = clSetKernelArg(conv, 6, sizeof(int), &size);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 7, sizeof(int), &r);
+    err = clSetKernelArg(conv, 7, sizeof(int), &i);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 8, sizeof(int), &weights.num_sets);
-    CHK_ERR(err);
-
-    err = clSetKernelArg(conv, 9, sizeof(int), &i);
-    CHK_ERR(err);
-
-    err = clSetKernelArg(conv, 10, sizeof(float) * input.rows * input.cols, NULL);
-    CHK_ERR(err);
-
-    err = clSetKernelArg(conv, 11, sizeof(float) * input.rows * input.cols, NULL);
+    err = clSetKernelArg(conv, 8, sizeof(float) * input.rows * input.cols, NULL);
     CHK_ERR(err);
 
     err = clEnqueueNDRangeKernel(cv.commands[device],
@@ -71,8 +67,5 @@ void ocl_conv(GpuBatch input, GpuBatch output, GpuWeights weights, int r, cl_var
             NULL
     );
     CHK_ERR(err);
-
-
   }
-  /* Block until all queued OpenCL commands in command-queue are completed */
 }
