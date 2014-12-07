@@ -7,10 +7,11 @@
 #include <vector>
 #include <iterator>
 #include <math.h> 
+#include <assert.h>
 #ifdef __APPLE__
 #include <Accelerate/Accelerate.h>  //Apple's lapack 
 #else
-#include <clapack.h>		    //C lapack
+#include <cblas.h>		    //C lapack
 #endif
 using namespace std;
 class Hidden_Layer; 
@@ -90,6 +91,24 @@ void softmax(float *input, float *output, int n) {
     }
 }
 
+float cost(float* vector) {
+    
+}
+
+float loss(float* input, float* output, int n) {
+    /* L1 regression loss function
+     * L(f, (x,y)) = |f(x) - y|
+     * @param input: f(x) vector (predicted value)
+     * @param output: y vector (actual value)
+     * @param n: size of input and output vectors.
+     */
+    float sum = 0.0;
+    for (int i = 0; i<n; i++) {
+	sum += fabsf(input[i] - output[i]);
+    }
+    return sum;
+}
+
 void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
     /* Initializes weights and hidden layers 
      * @param numlayers is the total number of layers. Number of hidden layers is numlayers - 2
@@ -138,7 +157,23 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
  //    fclose(pFile); 
 };
 
+void testLoss() {
+    // test the loss function
+    float input[2] = {3, 3};
+    float output[2] = {2, 2};
+    float l = loss(input, output, 2); // should be (3-2) + (3-2) = 2
+    assert(l==2.0);
+    //printf("loss = %f \n", l);
+    float input2[2] = {5.5, 6.5};
+    float output2[2] = {3.0, 0.0};
+    float l2 = loss(input2, output2, 2); // should be (5.5-3) + (6.5-0) = 9
+    //printf("loss = %f \n", l2);
+    assert(l2==9.0);
+}
+
 int main(int argc, char* argv[]){
+
+    testLoss();
 
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
     int layer_sizes[3] = {36, 36, 2};
@@ -151,5 +186,8 @@ int main(int argc, char* argv[]){
     forward_prop(input, 36, hiddenlayers, 3);
     output = hiddenlayers[1].output;
     printf("%f  %f \n", output[0], output[1]);
+
+
+
 
 };
