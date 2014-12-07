@@ -47,20 +47,16 @@ class Weights {
     int cols;
     int r;
     int depth;
-    int num_sets;
-  Weights(int n_sets, int radius, int depth, float range): depth(depth) {
-    num_sets = n_sets;
+  Weights(int radius, int depth, float range): depth(depth) {
     rows = (radius * 2 + 1);
     cols = (radius * 2 + 1);
-    data = new float[num_sets * depth * rows * cols];
-    for (int n = 0; n < num_sets; n++) {
-      for (int z = 0; z < depth; z++) {
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                data[n * depth * rows * cols + z * rows * cols + i * cols + j] = (
-                    (float) rand() / (float) RAND_MAX) * (range * 2 + 1) - range;
-            }
-        }
+    data = new float[depth * rows * cols];
+    for (int z = 0; z < depth; z++) {
+      for (int i = 0; i < rows; i++) {
+          for (int j = 0; j < cols; j++) {
+              data[z * rows * cols + i * cols + j] = (
+                  (float) rand() / (float) RAND_MAX) * (range * 2 + 1) - range;
+          }
       }
     }
   }
@@ -73,10 +69,9 @@ class GpuWeights {
     int cols;
     int r;
     int depth;
-    int num_sets;
   GpuWeights(Weights w, cl_vars_t cv, cl_uint device) {
     cl_int err = CL_SUCCESS;
-    int size = w.depth * w.rows * w.cols * w.num_sets * sizeof(float);
+    int size = w.depth * w.rows * w.cols * sizeof(float);
     buf = clCreateBuffer(cv.context, CL_MEM_READ_ONLY, size, NULL, &err);
     CHK_ERR(err);
     err = clEnqueueWriteBuffer(cv.commands[device], buf, true, 0, size, w.data, 0, NULL, NULL);
@@ -85,6 +80,5 @@ class GpuWeights {
     rows = w.rows;
     cols = w.cols;
     r = w.r;
-    num_sets = w.num_sets;
   }
 };
