@@ -95,8 +95,19 @@ void softmax(float *input, float *output, int n) {
     }
 }
 
-float cost(float* vector) {
-    
+float cost(float* x, int input_size, Hidden_Layer hiddenlayers, int numlayers, float* y) {
+    /*
+     * cost = 1/2 * || f(x) - y ||
+     * cost of a single vector.  
+     * @param x: input vector
+     * @param input_size: length of x
+     * @param hiddenlayers: model- function f.
+     * @param numlayers: number of layers in model (3 in our case)
+     * @param y: validation output vector.
+     */
+
+    forward_prop(x, input_size, hiddenlayers, numlayers, output);
+    loss(input, output, ); 
 }
 
 float loss(float* input, float* output, int n) {
