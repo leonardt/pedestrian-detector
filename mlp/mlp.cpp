@@ -18,6 +18,7 @@ class Hidden_Layer;
 void softmax(float *input, float *output, int n);
 void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers);
 void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers); 
+float loss(float* input, float* output, int n);
 
 class Hidden_Layer {
     /* class definition that represents a hidden layer. On construction computes the hidden layer
@@ -91,7 +92,7 @@ void softmax(float *input, float *output, int n) {
     }
 }
 
-float cost(float* x, int input_size, Hidden_Layer hiddenlayers, int numlayers, float* y) {
+float cost(float* x, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* y) {
     /*
      * cost = 1/2 * || f(x) - y ||
      * cost of a single vector.  
@@ -101,9 +102,10 @@ float cost(float* x, int input_size, Hidden_Layer hiddenlayers, int numlayers, f
      * @param numlayers: number of layers in model (3 in our case)
      * @param y: validation output vector.
      */
-
-    forward_prop(x, input_size, hiddenlayers, numlayers, output);
-    loss(input, output, ); 
+    float* output;
+    forward_prop(x, input_size, hiddenlayers, numlayers);
+    output = hiddenlayers[1].output;
+    return 0.5*loss(output, y, hiddenlayers[1].n_out);
 }
 
 float loss(float* input, float* output, int n) {
@@ -156,16 +158,13 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
         weights_offset += layer_sizes[j] * layer_sizes[j+1];
         bias_offset += layer_sizes[j];
     }
-
-
-
- //    FILE *pFile = fopen("weights", "wb");
- //    if (!pFile) {
+    //    FILE *pFile = fopen("weights", "wb");
+    //    if (!pFile) {
 	// std::cout<<"error opening file";
 	// exit(0);
- //    };
- //    fwrite(weights, sizeof(float), 36*36, pFile);
- //    fclose(pFile); 
+    //    };
+    //    fwrite(weights, sizeof(float), 36*36, pFile);
+    //    fclose(pFile); 
 };
 
 void testLoss() {
@@ -182,13 +181,20 @@ void testLoss() {
     assert(l2==9.0);
 }
 
+void testCost(Hidden_Layer* hiddenlayers) {
+    //test the cost function with a simple model
+    float input[36] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
+    float output[2] = {1.0 ,1.0};
+    // cost1 should be .5*[(output[0] - model[0]) + (output[1] - model[1])] = .5*[(1-.5) + (1-.5)] = 0.5
+    float cost1 = cost(input, 36, hiddenlayers, 3, output); 
+    assert (cost1 == 0.5);
+}
 int main(int argc, char* argv[]){
-
     testLoss();
-
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
     int layer_sizes[3] = {36, 36, 2};
     init(3,layer_sizes, hiddenlayers);
+    testCost(hiddenlayers);
     //fread(weights, sizeof(float), 36*36, pFile);
     //fclose(pFile);
     float* output;
