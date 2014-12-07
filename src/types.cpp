@@ -76,11 +76,10 @@ class GpuWeights {
     int num_sets;
   GpuWeights(Weights w, cl_vars_t cv) {
     cl_int err = CL_SUCCESS;
-    buf = clCreateBuffer(cv.context, CL_MEM_READ_ONLY, w.depth * w.rows * w.cols * w.num_sets *
-        sizeof(float), NULL, &err);
+    int size = w.depth * w.rows * w.cols * w.num_sets * sizeof(float);
+    buf = clCreateBuffer(cv.context, CL_MEM_READ_ONLY, size, NULL, &err);
     CHK_ERR(err);
-    err = clEnqueueWriteBuffer(cv.commands, buf, true, 0, w.depth * w.rows * w.cols * w.num_sets *
-        sizeof(float), w.data, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(cv.commands, buf, true, 0, size, w.data, 0, NULL, NULL);
     CHK_ERR(err);
     depth = w.depth;
     rows = w.rows;

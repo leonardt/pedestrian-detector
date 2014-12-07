@@ -17,6 +17,7 @@ using namespace cv;
 
 void ocl_conv(GpuBatch input, GpuBatch output, GpuWeights weights, int r, cl_vars_t cv, cl_kernel conv) {
 
+  for (int i = 0; i < weights.num_sets; i++) {
     cl_int err = CL_SUCCESS;
 
     size_t global_work_size[3] = {static_cast<size_t>(input.rows), static_cast<size_t>(input.cols), static_cast<size_t>(input.batch_size)};
@@ -51,10 +52,13 @@ void ocl_conv(GpuBatch input, GpuBatch output, GpuWeights weights, int r, cl_var
     err = clSetKernelArg(conv, 8, sizeof(int), &weights.num_sets);
     CHK_ERR(err);
 
-    err = clSetKernelArg(conv, 9, sizeof(float) * input.rows * input.cols * input.depth, NULL);
+    err = clSetKernelArg(conv, 9, sizeof(int), &i);
     CHK_ERR(err);
 
     err = clSetKernelArg(conv, 10, sizeof(float) * input.rows * input.cols, NULL);
+    CHK_ERR(err);
+
+    err = clSetKernelArg(conv, 11, sizeof(float) * input.rows * input.cols, NULL);
     CHK_ERR(err);
 
     /* Enqueue a command to execute the matmul kernel on the device associated with the
@@ -75,6 +79,7 @@ void ocl_conv(GpuBatch input, GpuBatch output, GpuWeights weights, int r, cl_var
     /* Block until all queued OpenCL commands in command-queue are completed */
     err = clFinish(cv.commands);
     CHK_ERR(err);
+  }
 }
 
 void cl_max_pool(cl_mem input, int in_rows, int in_cols, GpuBatch output, int s, cl_vars_t cv, cl_kernel conv) {
