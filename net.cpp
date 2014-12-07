@@ -138,7 +138,6 @@ int main(int argc, char **argv) {
       GpuBatch batch = gpu_batches[device];
       GpuBatch ocl_out_buf = gpu_l1_outputs[device];
       ocl_conv(batch, ocl_out_buf, l1_gpu_weights[device], w, cv, conv, device);
-      clReleaseMemObject(batch.buf);
       ocl_conv(ocl_out_buf, gpu_l2_outputs[device], l2_gpu_weights[device], w, cv, conv, device);
     }
     for (cl_uint device = 0; device < cv.num_devices; device++) {
