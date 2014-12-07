@@ -174,6 +174,7 @@ int main(int argc, char **argv) {
     cout << "PASSED" << endl;
     cout << "cpu time: " << cpu_total << endl;
     cout << "gpu time: " << gpu_total << endl;
+    cout << "gpu speedup: " << cpu_total / gpu_total << endl;
     
     return 0;
 }
