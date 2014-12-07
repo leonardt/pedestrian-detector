@@ -15,8 +15,9 @@
 using namespace std;
 class Hidden_Layer; 
 void softmax(float *input, float *output, int n);
-int forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* output);
+void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers);
 void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers); 
+
 class Hidden_Layer {
     /* class definition that represents a hidden layer. On construction computes the hidden layer
      *  H(x) = s(b+Wx), where s is the activation function and b is the bias vector
@@ -41,12 +42,8 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
     output = (float *) malloc(n_out*sizeof(float));
 }
 void Hidden_Layer::compute_output(float* input, int last_layer) {
-    printf("nout:%d, nin:%d, input[0]: %f", n_out, n_in, input[0]);
-    if (n_out != 1) 
-        cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_out, input, 1, 1.0f, output, 1); //computes Wx
-    else 
-        output[0] = cblas_sdot(n_in, layer_weights, 1, input, 1);
-        printf("output is %f \n", output[0]);
+    printf("nout:%d, nin:%d, input[0]: %f \n", n_out, n_in, input[0]);
+    cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
     cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
     for (int i = 0; i < n_out; i++) {
         if (!last_layer)
@@ -59,7 +56,7 @@ void Hidden_Layer::compute_output(float* input, int last_layer) {
 }
 
 
-int forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* output) {
+void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers) {
     /* @param input: array of length 36 representing 6 6x1 vectors
      * @param input_size: size of input array.
      * @param weights: weight vector
@@ -72,7 +69,6 @@ int forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int n
         hiddenlayers[i].compute_output(hiddenlayers[i-1].output, 0);
      }
      hiddenlayers[numlayers-2].compute_output(hiddenlayers[numlayers-3].output, 1);
-
 };
 
 
@@ -145,13 +141,15 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
 int main(int argc, char* argv[]){
 
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
-    int layer_sizes[3] = {36, 36, 1};
+    int layer_sizes[3] = {36, 36, 2};
     init(3,layer_sizes, hiddenlayers);
     //fread(weights, sizeof(float), 36*36, pFile);
     //fclose(pFile);
-    float output[1];
+    float* output;
     float input[36] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
-
-    forward_prop(input, 36, hiddenlayers, 3, output);
+    //cblas_sgemv(CblasRowMajor, CblasNoTrans, 2, 36, 1.0f, input2, 36, input, 1, 1.0f, output, 1);
+    forward_prop(input, 36, hiddenlayers, 3);
+    output = hiddenlayers[1].output;
+    printf("%f  %f \n", output[0], output[1]);
 
 };
