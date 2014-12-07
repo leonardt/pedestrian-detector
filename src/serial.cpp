@@ -1,7 +1,9 @@
+#include <omp.h>
 using namespace cv;
 
 
 void convolve(Batch input, Batch output, Weights weights, int r) {
+  #pragma omp parallel for
   for (int z = 0; z < input.batch_size; z++) {
     for (int i = r; i < input.rows - r; i++) {
       for (int j = r; j < input.cols - r; j++) {
@@ -30,6 +32,7 @@ void convolve(Batch input, Batch output, Weights weights, int r) {
 }
 
 void max_pool(Batch input, Batch output, int s) {
+  #pragma omp parallel for
   for (int z = 0; z < input.batch_size; z++) {
     for (int i = 0; i < output.rows; i++) {
       for (int j = 0; j < output.cols; j++) {

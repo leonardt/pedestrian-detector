@@ -14,22 +14,28 @@ void initialize_ocl(cl_vars_t& cv)
   cv.err = clGetPlatformIDs(1, &(cv.platform), &(cv.platforms));
   CHK_ERR(cv.err);
 
-  cl_device_id *device_ids = new cl_device_id[2];
-  cl_uint num_devices;
-  cv.err = clGetDeviceIDs(cv.platform, CL_DEVICE_TYPE_GPU, 2, device_ids, &num_devices);
-  CHK_ERR(cv.err);
-  if (num_devices > 1) {
-    cv.device_id = device_ids[1];
+  if (getenv("OCL_GPU1")) {
+    cv.device_ids = new cl_device_id[1];
+    cv.num_devices = 1;
+    cl_device_id devices[2];
+    cv.err = clGetDeviceIDs(cv.platform, CL_DEVICE_TYPE_GPU, 2, devices, NULL);
+    CHK_ERR(cv.err);
+    cv.device_ids[0] = devices[1];
   } else {
-    cv.device_id = device_ids[0];
+    cv.err = clGetDeviceIDs(cv.platform, CL_DEVICE_TYPE_GPU, 0, NULL, &cv.num_devices);
+    cv.device_ids = new cl_device_id[cv.num_devices];
+    cv.err = clGetDeviceIDs(cv.platform, CL_DEVICE_TYPE_GPU, cv.num_devices, cv.device_ids, NULL);
+    CHK_ERR(cv.err);
   }
-
-  cv.context = clCreateContext(0, 1, &(cv.device_id), NULL, NULL, &(cv.err));
+  cv.context = clCreateContext(0, cv.num_devices, cv.device_ids, NULL, NULL, &(cv.err));
   CHK_ERR(cv.err);
 
-  cv.commands = clCreateCommandQueue(cv.context, cv.device_id, 
-				     CL_QUEUE_PROFILING_ENABLE, &(cv.err));
-  CHK_ERR(cv.err);
+  cv.commands = new cl_command_queue[cv.num_devices];
+  for (cl_uint i = 0; i < cv.num_devices; i++) {
+    cv.commands[i] = clCreateCommandQueue(cv.context, cv.device_ids[i], 
+                                          CL_QUEUE_PROFILING_ENABLE, &(cv.err));
+    CHK_ERR(cv.err);
+  }
 
 
 #ifdef DEBUG
@@ -57,8 +63,10 @@ void initialize_ocl(cl_vars_t& cv)
 void uninitialize_ocl(cl_vars_t & clv)
 {
   cl_int err;
-  err = clFlush(clv.commands);
-  CHK_ERR(err);
+  for (cl_uint i = 0; i < clv.num_devices; i++) {
+    err = clFlush(clv.commands[i]);
+    CHK_ERR(err);
+  }
 
   for(std::list<cl_kernel>::iterator it = clv.kernels.begin();
       it != clv.kernels.end(); it++)
@@ -71,8 +79,10 @@ void uninitialize_ocl(cl_vars_t & clv)
   err = clReleaseProgram(clv.main_program);
   CHK_ERR(err);
     
-  err = clReleaseCommandQueue(clv.commands);
-  CHK_ERR(err);
+  for (cl_uint i = 0; i < clv.num_devices; i++) {
+    err = clReleaseCommandQueue(clv.commands[i]);
+    CHK_ERR(err);
+  }
 
   err = clReleaseContext(clv.context);
   CHK_ERR(err);
@@ -83,7 +93,7 @@ void ocl_device_query(cl_vars_t &cv)
   char buf[256];
   cl_int err;
   memset(buf,0,sizeof(buf));
-  err = clGetDeviceInfo(cv.device_id,CL_DEVICE_NAME,
+  err = clGetDeviceInfo(cv.device_ids[0],CL_DEVICE_NAME,
 			sizeof(buf),(void*)buf,
 			NULL);
   CHK_ERR(err);
@@ -106,7 +116,7 @@ void compile_ocl_program(cl_kernel & kernel, cl_vars_t &cv,
       size_t len;
       char buffer[2048];
       std::cout << "Error: Failed to build program executable: " << kname <<  std::endl;
-      clGetProgramBuildInfo(cv.main_program, cv.device_id, CL_PROGRAM_BUILD_LOG, 
+      clGetProgramBuildInfo(cv.main_program, cv.device_ids[0], CL_PROGRAM_BUILD_LOG, 
 			    sizeof(buffer), buffer, &len);
       std::cout << buffer << std::endl;
       exit(1);
@@ -140,7 +150,7 @@ void compile_ocl_program(std::map<std::string, cl_kernel> &kernels,
       size_t len;
       char buffer[2048];
       std::cout << "Error: Failed to build program executable " << std::endl;
-      clGetProgramBuildInfo(cv.main_program, cv.device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
+      clGetProgramBuildInfo(cv.main_program, cv.device_ids[0], CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
       std::cout << buffer << std::endl;
       exit(1);
     }

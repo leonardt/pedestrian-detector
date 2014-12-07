@@ -24,9 +24,10 @@ typedef struct CLVARS
 {
   cl_int err;
   cl_platform_id platform;
-  cl_device_id device_id;
+  cl_device_id *device_ids;
+  cl_uint num_devices;
   cl_context context;
-  cl_command_queue commands;
+  cl_command_queue *commands;
 
   cl_program main_program;
   std::list<cl_kernel> kernels;
