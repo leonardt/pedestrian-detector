@@ -2,21 +2,20 @@
 using namespace cv;
 
 
-void convolve(Batch input, Batch output, Weights weights, int r) {
-  #pragma omp parallel for
+void convolve(Batch input, Batch output, vector<Weights> weights_sets, int r) {
   for (int z = 0; z < input.batch_size; z++) {
     for (int i = r; i < input.rows - r; i++) {
       for (int j = r; j < input.cols - r; j++) {
-        for (int n = 0; n < weights.num_sets; n++) {
+        for (int n = 0; n < weights_sets.size(); n++) {
           float sum = 0.0;
+          Weights weights = weights_sets[n];
           for (int k = 0; k < input.depth; k++) {
             for (int ii = -r; ii <= r; ii++) {
               for (int jj = -r; jj <= r; jj++) {
                 float elt = input.data[z * input.depth * input.rows * input.cols +
                                        k * input.rows * input.cols +
                                       (i + ii) * input.cols + j + jj];
-                float weight = weights.data[n * weights.depth * weights.rows * weights.cols + 
-                                            k * weights.rows * weights.cols +
+                float weight = weights.data[k * weights.rows * weights.cols +
                                             (ii + r) * weights.cols + jj + r];
                 sum += weight * elt;
               }
@@ -32,7 +31,6 @@ void convolve(Batch input, Batch output, Weights weights, int r) {
 }
 
 void max_pool(Batch input, Batch output, int s) {
-  #pragma omp parallel for
   for (int z = 0; z < input.batch_size; z++) {
     for (int i = 0; i < output.rows; i++) {
       for (int j = 0; j < output.cols; j++) {
@@ -56,14 +54,8 @@ void max_pool(Batch input, Batch output, int s) {
   }
 }
 
-void layer1_compute(Batch input, Batch output, Weights weights, int r, int s) {
-    Batch conv_out(input.batch_size, weights.num_sets, input.rows - 2 * r, input.cols - 2 * r);
-    convolve(input, conv_out, weights, r);
-    max_pool(conv_out, output, s);
-}
-
-void layer2_compute(Batch input, Batch output, Weights weights, int r, int s) {
-    Batch conv_out(input.batch_size, input.rows - 2 * r, input.cols - 2 * r, weights.depth);
+void layer1_compute(Batch input, Batch output, vector<Weights> weights, int r, int s) {
+    Batch conv_out(input.batch_size, weights.size(), input.rows - 2 * r, input.cols - 2 * r);
     convolve(input, conv_out, weights, r);
     max_pool(conv_out, output, s);
 }

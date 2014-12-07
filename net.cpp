@@ -75,18 +75,29 @@ int main(int argc, char **argv) {
 
     int l1_numoutputs = 20;
     int w = 2;
-    Weights l1_weights(l1_numoutputs, w, 1, 1);
+    int l2_numoutputs = 50;
+    vector<Weights> l1_weights;
+    vector<Weights> l2_weights;
+    for (int i = 0; i < l1_numoutputs; i++) {
+      l1_weights.push_back(Weights(w, 1, 1));
+    }
+    for (int i = 0; i < l2_numoutputs; i++) {
+      l2_weights.push_back(Weights(w, l1_numoutputs, l1_numoutputs));
+    }
 
-    int l2_numoutputs = 30;
-    Weights l2_weights(l2_numoutputs, w, l1_numoutputs, l1_numoutputs);
-
-    vector<GpuWeights> l1_gpu_weights;
-    vector<GpuWeights> l2_gpu_weights;
+    vector<vector<GpuWeights> > l1_gpu_weights;
+    vector<vector<GpuWeights> > l2_gpu_weights;
     for (cl_uint device = 0; device < cv.num_devices; device++) {
-      GpuWeights l1_ocl_weights(l1_weights, cv, device);
-      GpuWeights l2_ocl_weights(l2_weights, cv, device);
-      l1_gpu_weights.push_back(l1_ocl_weights);
-      l2_gpu_weights.push_back(l2_ocl_weights);
+      vector<GpuWeights> l1_weights_set;
+      for (int i = 0; i < l1_numoutputs; i++) {
+        l1_weights_set.push_back(GpuWeights(l1_weights[i], cv, device));
+      }
+      vector<GpuWeights> l2_weights_set;
+      for (int i = 0; i < l2_numoutputs; i++) {
+        l2_weights_set.push_back(GpuWeights(l2_weights[i], cv, device));
+      }
+      l1_gpu_weights.push_back(l1_weights_set);
+      l2_gpu_weights.push_back(l2_weights_set);
     }
 
     vector<Batch> cpu_l1_outputs;
