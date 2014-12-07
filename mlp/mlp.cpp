@@ -10,7 +10,7 @@
 #ifdef __APPLE__
 #include <Accelerate/Accelerate.h>  //Apple's lapack 
 #else
-#include <clapack.h>		    //C lapack
+#include <cblas.h>		    //C lapack
 #endif
 using namespace std;
 class Hidden_Layer; 
