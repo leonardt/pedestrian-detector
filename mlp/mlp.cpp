@@ -43,7 +43,7 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
     output = (float *) malloc(n_out*sizeof(float));
 }
 void Hidden_Layer::compute_output(float* input, int last_layer) {
-    printf("nout:%d, nin:%d, input[0]: %f \n", n_out, n_in, input[0]);
+    printf("nout:%d, nin:%d \n", n_out, n_in);
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
     cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
     for (int i = 0; i < n_out; i++) {
@@ -52,7 +52,6 @@ void Hidden_Layer::compute_output(float* input, int last_layer) {
         else {
             softmax(output, output, n_out);
         }
-        printf("%f ", output[i]);
     }
 }
 
