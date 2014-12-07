@@ -23,7 +23,7 @@ class GpuBatch {
     int cols;
     int depth;
 
-    GpuBatch(Batch b, cl_vars_t cv) {
+    GpuBatch(Batch b, cl_vars_t cv, cl_uint device) {
       batch_size = b.batch_size;
       rows = b.rows;
       cols = b.cols;
@@ -33,10 +33,10 @@ class GpuBatch {
       buf = clCreateBuffer(cv.context, CL_MEM_READ_WRITE,
                                       size, NULL, &err);
       CHK_ERR(err);
-      err = clEnqueueWriteBuffer(cv.commands, buf, true, 0,
+      err = clEnqueueWriteBuffer(cv.commands[device], buf, true, 0,
                                  size, b.data, 0, NULL, NULL);
       CHK_ERR(err);
-      err = clFinish(cv.commands);
+      err = clFinish(cv.commands[device]);
     };
 };
 
@@ -74,12 +74,12 @@ class GpuWeights {
     int r;
     int depth;
     int num_sets;
-  GpuWeights(Weights w, cl_vars_t cv) {
+  GpuWeights(Weights w, cl_vars_t cv, cl_uint device) {
     cl_int err = CL_SUCCESS;
     int size = w.depth * w.rows * w.cols * w.num_sets * sizeof(float);
     buf = clCreateBuffer(cv.context, CL_MEM_READ_ONLY, size, NULL, &err);
     CHK_ERR(err);
-    err = clEnqueueWriteBuffer(cv.commands, buf, true, 0, size, w.data, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(cv.commands[device], buf, true, 0, size, w.data, 0, NULL, NULL);
     CHK_ERR(err);
     depth = w.depth;
     rows = w.rows;
