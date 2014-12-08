@@ -19,9 +19,10 @@ void softmax(float *input, float *output, int n);
 void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers);
 void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers); 
 float loss(float* input, float* output, int n);
-float softmax_prime(float* input, float* output, int n);
+void softmax_prime(float* input, float* output, int n);
 float cost(float* x, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* y);
 void backprop(int input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual);
+float tanh_prime(float input);
 
 class Hidden_Layer {
     /* class definition that represents a hidden layer. On construction computes the hidden layer
@@ -103,6 +104,9 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
 
 }
 
+float tanh_prime(float input) {
+    return (4*pow(cosh(input), 2)) / pow((cosh(2*input)+1), 2);
+}
 void softmax_prime(float* input, float* output, int n) {
     float denom = 0.0;
     float denom_prime = 0.0;
