@@ -21,7 +21,6 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers);
 float loss(float* input, float* output, int n);
 float softmax_prime(float* input, float* output, int n);
 float cost(float* x, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* y);
-
 void backprop(int input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual);
 
 class Hidden_Layer {
@@ -76,7 +75,6 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
      hiddenlayers[numlayers-2].compute_output(hiddenlayers[numlayers-3].output, 1);
 };
 
-
 void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual) {
     float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual);
     int largest_layer_size = hiddenlayers[0].n_in;
@@ -105,7 +103,18 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
 
 }
 
-
+void softmax_prime(float* input, float* output, int n) {
+    float denom = 0.0;
+    float denom_prime = 0.0;
+    for (int i=0; i<n; i++) {
+        denom += exp(input[i]);
+        denom_prime += input[i]*exp(input[i]);
+    }
+    float denomsq = pow(denom, 2);
+    for (int i=0; i<n; i++) {
+        output[i] = (input[i] * exp(input[i]) * denom - denom_prime*exp(input[i])) / denomsq;
+    }
+}
 void softmax(float *input, float *output, int n) {
     /*
      * Softmax function computes softmax of given vector.
@@ -200,6 +209,14 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
     //    fclose(pFile); 
 };
 
+void testsoftmaxprime() {
+    float input[36] = {0.23, 0.01, 0.13, 0.01, 0.45, 0.65, 0.14, 0.67, 0.01, 0.12, 0.01, 0.14, 0.98, 0.56, 0.72, 0.24, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
+    float output1[36];
+    softmax_prime(input, output1, 36);
+    for (int i = 0; i < 36; i++) {
+        printf("%f   ", output1[i]);
+    }
+}
 void testLoss() {
     // test the loss function
     float input[2] = {3, 3};
@@ -223,6 +240,7 @@ void testCost(Hidden_Layer* hiddenlayers) {
     assert (cost1 == 0.5);
 }
 int main(int argc, char* argv[]){
+
     //testLoss();
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
     int layer_sizes[3] = {36, 36, 2};
@@ -232,6 +250,8 @@ int main(int argc, char* argv[]){
     //fclose(pFile);
     float* output;
     float input[36] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
+    testsoftmaxprime();
+
     //cblas_sgemv(CblasRowMajor, CblasNoTrans, 2, 36, 1.0f, input2, 36, input, 1, 1.0f, output, 1);
     forward_prop(input, 36, hiddenlayers, 3);
     output = hiddenlayers[1].output;
