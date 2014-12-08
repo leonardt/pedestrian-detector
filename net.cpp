@@ -46,13 +46,15 @@ int main(int argc, char **argv) {
     initialize_ocl(cv);
 
     cl_kernel conv = build_kernel(string("conv"), string("./src/kernels.cl"), cv);
+    cl_kernel hidden_layer_kern = build_kernel(string("hidden_layer"), string("./src/kernels.cl"), cv);
+    cl_kernel softmax_kern = build_kernel(string("soft_max"), string("./src/kernels.cl"), cv);
 
     cl_int err = CL_SUCCESS;
     Mat image, int_image;
     VideoCapture sequence(argv[1]);
     sequence >> int_image;
     int_image.convertTo(image, CV_32F);
-    int batch_size = 500;
+    int batch_size = 512;
     vector<Batch> batches;
     vector<GpuBatch> gpu_batches;
     for (cl_uint device = 0; device < cv.num_devices; device++) {
@@ -75,7 +77,7 @@ int main(int argc, char **argv) {
 
     int l1_numoutputs = 20;
     int w = 2;
-    int l2_numoutputs = 50;
+    int l2_numoutputs = 52;
     vector<Weights> l1_weights;
     vector<Weights> l2_weights;
     for (int i = 0; i < l1_numoutputs; i++) {
@@ -155,7 +157,7 @@ int main(int argc, char **argv) {
       CHK_ERR(err);
       err = clFinish(cv.commands[device]);
       CHK_ERR(err);
-      
+
       check_outputs(out, cpu_l1_outputs[device]);
       out_buf = gpu_l2_outputs[device];
       out = gpu_l2_outputs_host[device];
@@ -166,14 +168,69 @@ int main(int argc, char **argv) {
       CHK_ERR(err);
       err = clFinish(cv.commands[device]);
       CHK_ERR(err);
-      
       check_outputs(out, cpu_l2_outputs[device]);
+    }
+
+    // hidden layer
+    vector<GpuBatch> hl1_out;
+    vector<GpuBatch> hl1_v;
+    double hl_total = timestamp();
+    for (cl_uint device = 0; device < cv.num_devices; device++) {
+      GpuBatch batch = gpu_l2_outputs[device];
+      Weights hidden_layer_weights(0, batch.rows * batch.cols * batch.depth, 1);
+      GpuWeights weights(hidden_layer_weights, cv, device);
+      Batch out = Batch(batch_size, 1, 1, 1);
+      GpuBatch out_buf = GpuBatch(out, cv, device);
+      Batch v = Batch(batch_size, 1, 1, 1);
+      GpuBatch v_buf = GpuBatch(v, cv, device);
+      ocl_hidden_layer(batch, weights, weights, out_buf, v_buf, 0, cv, 
+          hidden_layer_kern, device);
+      ocl_softmax(out_buf, cv, softmax_kern, device);
+      hl1_out.push_back(out_buf);
+      hl1_v.push_back(v_buf);
+    }
+    for (cl_uint device = 0; device < cv.num_devices; device++) {
+      err = clFinish(cv.commands[device]);
+      CHK_ERR(err);
+    }
+    cout << timestamp() - hl_total << endl;
+
+    vector<GpuBatch> hl2_out;
+    vector<GpuBatch> hl2_v;
+    for (cl_uint device = 0; device < cv.num_devices; device++) {
+      GpuBatch batch = hl1_out[device];
+      Weights hidden_layer_weights(0, 500 * batch.rows * batch.cols * batch.depth, 1);
+      GpuWeights weights(hidden_layer_weights, cv, device);
+      Batch out = Batch(batch_size, 1, 1, 1);
+      GpuBatch out_buf = GpuBatch(out, cv, device);
+      Batch v = Batch(batch_size, 1, 1, 1);
+      GpuBatch v_buf = GpuBatch(v, cv, device);
+      ocl_hidden_layer(batch, weights, weights, out_buf, v_buf, 0, cv, 
+          hidden_layer_kern, device);
+      ocl_softmax(out_buf, cv, softmax_kern, device);
+      hl2_out.push_back(out_buf);
+      hl2_v.push_back(v_buf);
+    }
+
+    vector<GpuBatch> hl3_out;
+    vector<GpuBatch> hl3_v;
+    for (cl_uint device = 0; device < cv.num_devices; device++) {
+      GpuBatch batch = hl1_out[device];
+      Weights hidden_layer_weights(0, batch.rows * batch.cols * batch.depth, 1);
+      GpuWeights weights(hidden_layer_weights, cv, device);
+      Batch out = Batch(batch_size, 1, 1, 1);
+      GpuBatch out_buf = GpuBatch(out, cv, device);
+      Batch v = Batch(batch_size, 1, 1, 1);
+      GpuBatch v_buf = GpuBatch(v, cv, device);
+      ocl_hidden_layer(batch, weights, weights, out_buf, v_buf, 0, cv, 
+          hidden_layer_kern, device);
+      hl3_out.push_back(out_buf);
+      hl3_v.push_back(v_buf);
     }
 
     cout << "PASSED" << endl;
     cout << "cpu time: " << cpu_total << endl;
     cout << "gpu time: " << gpu_total << endl;
     cout << "gpu speedup: " << cpu_total / gpu_total << endl;
-    
     return 0;
 }

@@ -45,7 +45,6 @@ class Weights {
     float* data;
     int rows;
     int cols;
-    int r;
     int depth;
   Weights(int radius, int depth, float range): depth(depth) {
     rows = (radius * 2 + 1);
@@ -67,7 +66,6 @@ class GpuWeights {
     cl_mem buf;
     int rows;
     int cols;
-    int r;
     int depth;
   GpuWeights(Weights w, cl_vars_t cv, cl_uint device) {
     cl_int err = CL_SUCCESS;
@@ -79,6 +77,5 @@ class GpuWeights {
     depth = w.depth;
     rows = w.rows;
     cols = w.cols;
-    r = w.r;
   }
 };
