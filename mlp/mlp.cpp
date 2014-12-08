@@ -200,19 +200,21 @@ float tanh_prime(float input) {
     return (4*pow(cosh(input), 2)) / pow((cosh(2*input)+1), 2);
 }
 void softmax_prime(float* input, float* output, int n) {
-
-
-/*    float denom = 0.0;
-    float denom_prime = 0.0;
-    for (int i=0; i<n; i++) {
-        denom += exp(input[i]);
-        denom_prime += input[i]*exp(input[i]);
-    }
-    float denomsq = pow(denom, 2);
-    for (int i=0; i<n; i++) {
-        output[i] = (input[i] * exp(input[i]) * denom - denom_prime*exp(input[i])) / denomsq;
-    }
+    /* Computes derivative of softmax. Softmax prime takes in a vector and outputs a square jacobian matrix
+     * @param input: input vector of length n
+     * @param output: output matrix of size n*n
+     * @param n: size of input vector
     */
+    float * interoutput = (float *) malloc(n*sizeof(float));
+    softmax(input, interoutput, n);
+    for (int i = 0; i < n; i++) {
+        for (int k = 0; k < n; k++) {
+            float delta = 0; 
+            if (i == k) delta = 1;
+            output[k+n*i] = interoutput[i] * (delta - interoutput[k]);
+        }
+    }
+    free(interoutput);
 }
 void softmax(float *input, float *output, int n) {
     /*
@@ -314,11 +316,11 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
 };
 
 void testsoftmaxprime() {
-    float input[36] = {0.23, 0.01, 0.13, 0.01, 0.45, 0.65, 0.14, 0.67, 0.01, 0.12, 0.01, 0.14, 0.98, 0.56, 0.72, 0.24, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
-    float output1[36];
-    softmax_prime(input, output1, 36);
-    for (int i = 0; i < 36; i++) {
-        ////printf("%f   ", output1[i]);
+    float input[2] = {1.0, 0.8};
+    float output1[4];
+    softmax_prime(input, output1, 2);
+    for (int i = 0; i < 4; i++) {
+        printf("softmax prime : %f   ", output1[i]);
     }
 }
 void testLoss() {
