@@ -22,14 +22,12 @@ float loss(float* input, float* output, int n);
 
 class Hidden_Layer {
     /* class definition that represents a hidden layer. On construction computes the hidden layer
-     *  H(x) = s(b+Wx), where s is the activation function and b is the bias vector
-     *  Stores the result in to an output variable. 
-     *  n_in should be the #elements in input vector and #rows of layer_weights.
-     *  n_out is the number of hidden layers and #cols of layer_weights.
-     *  Each column of layer_weights corresponds to edges from input to the ith hidden layer element
+     *  represented by the layer weights, bias vector, induced local field vector and output.   
+     *  n_in should be the #elements in input vector and #cols of layer_weights.
+     *  n_out is the number of hidden layers and #rows of layer_weights.
      */
  public: 
-    float *layer_weights, *bias, *output;
+    float *layer_weights, *bias, *output, *v;
     int n_in, n_out;
     Hidden_Layer(){};
     Hidden_Layer(float *, float *, int, int);
@@ -42,19 +40,21 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
     n_in = in;
     n_out = out;
     output = (float *) malloc(n_out*sizeof(float));
+    v = (float *) malloc(n_out*sizeof(float));
 }
 void Hidden_Layer::compute_output(float* input, int last_layer) {
     printf("nout:%d, nin:%d \n", n_out, n_in);
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
     cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
     for (int i = 0; i < n_out; i++) {
+        v[i] = output[i]; 
         if (!last_layer)
             output[i] = tanh(output[i]);
         else {
             softmax(output, output, n_out);
         }
     }
-}
+}   
 
 
 void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers) {
