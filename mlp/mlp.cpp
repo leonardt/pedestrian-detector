@@ -49,27 +49,18 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
 void Hidden_Layer::compute_output(float* input, int last_layer) {
     //printf("nout:%d, nin:%d \n", n_out, n_in);
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
-    //printf("should be 10.647... vector\n");
-    for(int i=0; i<n_out; i++){
-	//printf("output[i] = %f\n", output[i]);
-    }
-    //printf("bias = [%f, %f]\n", bias[0], bias[1]);
-    //printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
+
     cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
-    //printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
-    //printf("v vector for layer\n");
     if (!last_layer) {
-	for (int i = 0; i < n_out; i++) {
-	    v[i] = output[i];
-	    //printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
-	    //printf("v[%d] = %f\n", i, v[i]);
-	    output[i] = tanh(output[i]);
-	}
-    } else {
-	for (int i = 0; i < n_out; i++) {
-	    v[i] = output[i];
+    	for (int i = 0; i < n_out; i++) {
+    	    v[i] = output[i];
+    	    output[i] = tanh(output[i]);
         }
-	softmax(output, output, n_out);
+    } else {
+    	for (int i = 0; i < n_out; i++) {
+    	    v[i] = output[i];
+        }
+	    softmax(output, output, n_out);
     }
     //printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
 }   
@@ -370,7 +361,6 @@ int main(int argc, char* argv[]){
     float* output;
     float input[36] = {333.0, 333.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
     //testsoftmaxprime();
-
     //cblas_sgemv(CblasRowMajor, CblasNoTrans, 2, 36, 1.0f, input2, 36, input, 1, 1.0f, output, 1);
 //    forward_prop(input, 36, hiddenlayers, 3);
     output = hiddenlayers[1].output;
@@ -381,38 +371,5 @@ int main(int argc, char* argv[]){
     backprop(input, 36, hiddenlayers, 3, realoutput);
 
 
-//     float output2[36];
-
- //     float errors1[2] = {0.0, 0.0};
-
- //     float input1[72];
- //    float output2[36];
-
-
- //     for (int i = 0; i<72; i++) {
- //         input1[i] = 0.5;
- //     }
-
- //    float weights[72];
- //    for(int i=0; i<72; i++){
-	// weights[i] = 0.5;
- //    }
- //    float in[2] = {0.0, 0.0};
- //    cblas_sgemv(CblasRowMajor, CblasTrans, 
-	//     2, // M
-	//     36,	// N
-	//     1.0f, //
-	//     input1,
-	//     36,
-	//     errors1,
-	//     1,
-	//     1.0f,
-	//     //errors[i-1], // output
-	//     output2, // output
-	//     1);
-
- //    for(int i=0; i<36; i++){
-	// //printf("output2[%d] = %f\n", i, output2[i]);
- //    }
 
 };
