@@ -99,10 +99,10 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
 	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers-i-2].n_out);
 	layer_sizes[i+1] = hiddenlayers[i].n_out;
     }
-    float errors[numlayers-1][largest_layer_size]; // don't do the input layer
+    float *errors = (float *) malloc((numlayers-1)*largest_layer_size*sizeof(float));
     //final error = (a_L - y) (*) softmax'(Wx+b), where (*) is the Hadamard (element wise product)
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
-	errors[numlayers-2][i] = hiddenlayers[numlayers-2].output[i];
+	   errors[(numlayers-2)*largest_layer_size+i] = hiddenlayers[numlayers-2].output[i];
     }
     int output_size = hiddenlayers[numlayers-2].n_out;
     float activation_partial[output_size];
@@ -111,44 +111,52 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
     printf("	0 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[0], activation_partial[0]);  
     printf("	1 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[1], activation_partial[1]);  
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
-	errors[numlayers-2][i] -= actual[i]; //a_L - y [-.5, .5]
-	printf("a_L - y for layer %d index %d = %f \n",numlayers-2, i, errors[numlayers-2][i]); 
-	errors[numlayers-2][i] *= activation_partial[i]; // errors[1] is output layer errors
+	   errors[(numlayers-2)*largest_layer_size+i] -= actual[i]; //a_L - y [-.5, .5]
+	   //printf("a_L - y for layer %d index %d = %f \n",numlayers-2, i, errors[numlayers-2][i]); 
+	   errors[(numlayers-2)*largest_layer_size+i] *= activation_partial[i]; // errors[1] is output layer errors
     }
     // next compute error for all layers
     // error_l = ((w_l+1)^T * error_l+1) (*) softmax'(Wx+b)
     for(int i = numlayers-2; i>0; i--) { //only does i=1
 	// first find (w_i+1)^T * errors[i]
 	for(int j = 0; j < 2; j++) { // 0 to 36
-	    printf("INPUT = %f\n", errors[i][j]);
+	    printf("INPUT = %f\n", errors[i*largest_layer_size+j]);
 	}
 	for(int j = 0; j < 72; j++) { // 0 to 36
 	    printf("LAYER_WEIGHTS_INPUT = %f\n", hiddenlayers[i].layer_weights[j]);
 	}
-	float output2[36];
-	errors[i][0] = 0.0;
-	errors[i][1] = 0.0;
-	cblas_sgemv(CblasRowMajor, CblasNoTrans, 
-		    36,//hiddenlayers[i].n_out, // 2 
-		    2,//hiddenlayers[i].n_in, // 36 
-		    1.0f,
-		    hiddenlayers[i].layer_weights,
-		    2,//hiddenlayers[i].n_in,
-		    errors[i], // input vector
-		    1,
-		    1.0f,
-		    //errors[i-1], // output
-		    output2, // output
-		    1);
+
+	float errors1[2] = {0.0, 0.0};
+    float *input1 = (float *) malloc(72*sizeof(float));
+    float *output2 = (float *)malloc(36*sizeof(float));
+
+     for (int i = 0; i<72; i++) {
+         input1[i] = 0.5;
+     }
+    cblas_sgemv(CblasRowMajor, CblasTrans, 
+        2, // M
+        36, // N
+        1.0f, //
+        input1,
+        36,
+        errors+largest_layer_size,
+        1,
+        1.0f,
+        //errors[i-1], // output
+        errors, // output
+        1);
+    for(int j = 0; j < 36; j++) { // 0 to 36
+        printf("AFTER errors[%d][%d] = %f\n", 0, j, output2[j]);
+    }
 	for(int j = 0; j < hiddenlayers[i].n_in; j++) { // 0 to 36
-	    printf("AFTER errors[%d][%d] = %f\n", i-1, j, output2[j]);
+	    //printf("AFTER errors[%d][%d] = %f\n", i-1, j, output2[j]);
 	    //errors[i-1][j] *= tanh_prime(hiddenlayers[i-1].v[j]);
-	    errors[i-1][j] = output2[j] * tanh_prime(hiddenlayers[i-1].v[j]);
+	    errors[(i-1)*largest_layer_size + j] = output2[j] * tanh_prime(hiddenlayers[i-1].v[j]);
 	}
     }
-    printf( "output errors: \n");
-    printf( "errors[1][0] = %f \n", errors[1][0]);
-    printf( "errors[1][1] = %f \n", errors[1][1]);
+    // printf( "output errors: \n");
+    // printf( "errors[1][0] = %f \n", errors[1][0]);
+    // printf( "errors[1][1] = %f \n", errors[1][1]);
     
 
 
@@ -300,7 +308,7 @@ void testCost(Hidden_Layer* hiddenlayers) {
     assert (cost1 == 0.5);
 }
 int main(int argc, char* argv[]){
-/*
+
     //testLoss();
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
     int layer_sizes[3] = {36, 36, 2};
@@ -321,28 +329,44 @@ int main(int argc, char* argv[]){
     float realoutput[2] = { 1, 0 };
     backprop(input, 36, hiddenlayers, 3, realoutput);
 
-*/
-    float weights[72];
-    for(int i=0; i<72; i++){
-	weights[i] = 0.5;
-    }
-    float in[2] = {0.0, 0.0};
-    float output2[36];
-    cblas_sgemv(CblasRowMajor, CblasNoTrans, 
-	    36, // M
-	    2,	// N
-	    1.0f, //
-	    weights,
-	    2,
-	    in,
-	    1,
-	    1.0f,
-	    //errors[i-1], // output
-	    output2, // output
-	    1);
 
-    for(int i=0; i<36; i++){
-	printf("output2[%d] = %f\n", i, output2[i]);
-    }
+
+
+
+
+
+//     float output2[36];
+
+ //     float errors1[2] = {0.0, 0.0};
+
+ //     float input1[72];
+ //    float output2[36];
+
+
+ //     for (int i = 0; i<72; i++) {
+ //         input1[i] = 0.5;
+ //     }
+
+ //    float weights[72];
+ //    for(int i=0; i<72; i++){
+	// weights[i] = 0.5;
+ //    }
+ //    float in[2] = {0.0, 0.0};
+ //    cblas_sgemv(CblasRowMajor, CblasTrans, 
+	//     2, // M
+	//     36,	// N
+	//     1.0f, //
+	//     input1,
+	//     36,
+	//     errors1,
+	//     1,
+	//     1.0f,
+	//     //errors[i-1], // output
+	//     output2, // output
+	//     1);
+
+ //    for(int i=0; i<36; i++){
+	// printf("output2[%d] = %f\n", i, output2[i]);
+ //    }
 
 };
