@@ -49,15 +49,29 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
 void Hidden_Layer::compute_output(float* input, int last_layer) {
     printf("nout:%d, nin:%d \n", n_out, n_in);
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
-    cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
-    for (int i = 0; i < n_out; i++) {
-        v[i] = output[i]; 
-        if (!last_layer)
-            output[i] = tanh(output[i]);
-        else {
-            softmax(output, output, n_out);
-        }
+    printf("should be 10.647... vector\n");
+    for(int i=0; i<n_out; i++){
+	printf("output[i] = %f\n", output[i]);
     }
+    printf("bias = [%f, %f]\n", bias[0], bias[1]);
+    printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
+    cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
+    printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
+    printf("v vector for layer\n");
+    if (!last_layer) {
+	for (int i = 0; i < n_out; i++) {
+	    v[i] = output[i];
+	    printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
+	    printf("v[%d] = %f\n", i, v[i]);
+	    output[i] = tanh(output[i]);
+	}
+    } else {
+	for (int i = 0; i < n_out; i++) {
+	    v[i] = output[i];
+        }
+	softmax(output, output, n_out);
+    }
+    printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
 }   
 
 
@@ -78,28 +92,65 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
 
 void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual) {
     float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual);
-    int largest_layer_size = hiddenlayers[0].n_in;
+    int largest_layer_size = hiddenlayers[0].n_in; //36
+    int layer_sizes[numlayers]; // [36, 36, 2]
+    layer_sizes[0] = hiddenlayers[0].n_in;
     for(int i=0; i<numlayers-1; i++){
-	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers+i].n_out);
+	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers-i-2].n_out);
+	layer_sizes[i+1] = hiddenlayers[i].n_out;
     }
-    float errors[numlayers][largest_layer_size];
+    float errors[numlayers-1][largest_layer_size]; // don't do the input layer
     //final error = (a_L - y) (*) softmax'(Wx+b), where (*) is the Hadamard (element wise product)
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
-	errors[numlayers-1][i] = hiddenlayers[numlayers-2].output[i];
+	errors[numlayers-2][i] = hiddenlayers[numlayers-2].output[i];
     }
     int output_size = hiddenlayers[numlayers-2].n_out;
     float activation_partial[output_size];
     softmax_prime(hiddenlayers[numlayers-2].v, activation_partial, output_size); // softmax'(Wx+b)
+    printf("softmaxprime      input 	output: \n");
+    printf("	0 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[0], activation_partial[0]);  
+    printf("	1 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[1], activation_partial[1]);  
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
-	errors[numlayers-1][i] -= actual[i]; //a_L - y
-	errors[numlayers-1][i] *= activation_partial[i];
+	errors[numlayers-2][i] -= actual[i]; //a_L - y [-.5, .5]
+	printf("a_L - y for layer %d index %d = %f \n",numlayers-2, i, errors[numlayers-2][i]); 
+	errors[numlayers-2][i] *= activation_partial[i]; // errors[1] is output layer errors
     }
     // next compute error for all layers
     // error_l = ((w_l+1)^T * error_l+1) (*) softmax'(Wx+b)
-    for(int i = numlayers-2; i>=0; i--) {
-
-
+    for(int i = numlayers-2; i>0; i--) { //only does i=1
+	// first find (w_i+1)^T * errors[i]
+	for(int j = 0; j < 2; j++) { // 0 to 36
+	    printf("INPUT = %f\n", errors[i][j]);
+	}
+	for(int j = 0; j < 72; j++) { // 0 to 36
+	    printf("LAYER_WEIGHTS_INPUT = %f\n", hiddenlayers[i].layer_weights[j]);
+	}
+	float output2[36];
+	errors[i][0] = 0.0;
+	errors[i][1] = 0.0;
+	cblas_sgemv(CblasRowMajor, CblasNoTrans, 
+		    36,//hiddenlayers[i].n_out, // 2 
+		    2,//hiddenlayers[i].n_in, // 36 
+		    1.0f,
+		    hiddenlayers[i].layer_weights,
+		    2,//hiddenlayers[i].n_in,
+		    errors[i], // input vector
+		    1,
+		    1.0f,
+		    //errors[i-1], // output
+		    output2, // output
+		    1);
+	for(int j = 0; j < hiddenlayers[i].n_in; j++) { // 0 to 36
+	    printf("AFTER errors[%d][%d] = %f\n", i-1, j, output2[j]);
+	    //errors[i-1][j] *= tanh_prime(hiddenlayers[i-1].v[j]);
+	    errors[i-1][j] = output2[j] * tanh_prime(hiddenlayers[i-1].v[j]);
+	}
     }
+    printf( "output errors: \n");
+    printf( "errors[1][0] = %f \n", errors[1][0]);
+    printf( "errors[1][1] = %f \n", errors[1][1]);
+    
+
 
 
 }
@@ -198,12 +249,17 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
     for (int j = 0; j < numlayers-1; j++) {
         Hidden_Layer temp(weights+weights_offset, bias+bias_offset, layer_sizes[j], layer_sizes[j+1]);
         printf("weights: %f ", *(weights+weights_offset));
-
         printf("temp layer: %f \n", temp.layer_weights[0]);
         hiddenlayers[j] = temp;
         weights_offset += layer_sizes[j] * layer_sizes[j+1];
         bias_offset += layer_sizes[j];
     }
+    printf("\n hiddenlayer[1] weights: \n");
+    for(int i=0; i<72; i++) {
+	printf("hiddenlayer[1].weights[%d] = %f\n", i, hiddenlayers[1].layer_weights[i]);
+    }
+    printf("bias\n");
+    printf("bias[0] = %f\nbias[1] = %f", hiddenlayers[1].bias[0], hiddenlayers[1].bias[1]);
     //    FILE *pFile = fopen("weights", "wb");
     //    if (!pFile) {
 	// std::cout<<"error opening file";
@@ -218,7 +274,7 @@ void testsoftmaxprime() {
     float output1[36];
     softmax_prime(input, output1, 36);
     for (int i = 0; i < 36; i++) {
-        printf("%f   ", output1[i]);
+        //printf("%f   ", output1[i]);
     }
 }
 void testLoss() {
@@ -244,7 +300,7 @@ void testCost(Hidden_Layer* hiddenlayers) {
     assert (cost1 == 0.5);
 }
 int main(int argc, char* argv[]){
-
+/*
     //testLoss();
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
     int layer_sizes[3] = {36, 36, 2};
@@ -257,9 +313,36 @@ int main(int argc, char* argv[]){
     //testsoftmaxprime();
 
     //cblas_sgemv(CblasRowMajor, CblasNoTrans, 2, 36, 1.0f, input2, 36, input, 1, 1.0f, output, 1);
-    forward_prop(input, 36, hiddenlayers, 3);
+//    forward_prop(input, 36, hiddenlayers, 3);
     output = hiddenlayers[1].output;
     printf("%f  %f \n", output[0], output[1]);
 
+    //void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual) {
+    float realoutput[2] = { 1, 0 };
+    backprop(input, 36, hiddenlayers, 3, realoutput);
+
+*/
+    float weights[72];
+    for(int i=0; i<72; i++){
+	weights[i] = 0.5;
+    }
+    float in[2] = {0.0, 0.0};
+    float output2[36];
+    cblas_sgemv(CblasRowMajor, CblasNoTrans, 
+	    36,//hiddenlayers[i].n_out, // 2 
+	    2,//hiddenlayers[i].n_in, // 36 
+	    1.0f,
+	    weights,
+	    2,//hiddenlayers[i].n_in,
+	    in, // input vector
+	    1,
+	    1.0f,
+	    //errors[i-1], // output
+	    output2, // output
+	    1);
+
+    for(int i=0; i<36; i++){
+	printf("output2[%d] = %f\n", i, output2[i]);
+    }
 
 };
