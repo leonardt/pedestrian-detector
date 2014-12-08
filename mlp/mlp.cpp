@@ -73,6 +73,18 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
 };
 
 
+void backprop(int input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual) {
+    float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual);
+    //final error = (a_L - y) __Hadamard__ softmax'(Wx+b), where Hadamard is element wise product
+    float* a_L = hiddenlayers[numlayers-2].output ;
+    for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
+	a_L[i] -= actual[i];
+	a_L[i] *= softmax_prime(
+    }
+
+}
+
+
 void softmax(float *input, float *output, int n) {
     /*
      * Softmax function computes softmax of given vector.
@@ -93,7 +105,7 @@ void softmax(float *input, float *output, int n) {
 
 float cost(float* x, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* y) {
     /*
-     * cost = 1/2 * || f(x) - y ||
+     * cost = 1/2 * || f(x) - y ||^2
      * cost of a single vector.  
      * @param x: input vector
      * @param input_size: length of x
@@ -108,15 +120,16 @@ float cost(float* x, int input_size, Hidden_Layer* hiddenlayers, int numlayers, 
 }
 
 float loss(float* input, float* output, int n) {
-    /* L1 regression loss function
-     * L(f, (x,y)) = |f(x) - y|
+    /* L2 regression loss function
+     * L(f, (x,y)) = ||f(x) - y||^2
+     * sum of squared element-wise differences
      * @param input: f(x) vector (predicted value)
      * @param output: y vector (actual value)
      * @param n: size of input and output vectors.
      */
     float sum = 0.0;
     for (int i = 0; i<n; i++) {
-	sum += fabsf(input[i] - output[i]);
+	sum += pow((input[i] - output[i]), 2);
     }
     return sum;
 }
@@ -189,11 +202,11 @@ void testCost(Hidden_Layer* hiddenlayers) {
     assert (cost1 == 0.5);
 }
 int main(int argc, char* argv[]){
-    testLoss();
+    //testLoss();
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
     int layer_sizes[3] = {36, 36, 2};
     init(3,layer_sizes, hiddenlayers);
-    testCost(hiddenlayers);
+    //testCost(hiddenlayers);
     //fread(weights, sizeof(float), 36*36, pFile);
     //fclose(pFile);
     float* output;
