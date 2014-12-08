@@ -316,9 +316,6 @@ int main(int argc, char* argv[]){
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
     int layer_sizes[3] = {36, 36, 2};
     init(3,layer_sizes, hiddenlayers);
-    //testCost(hiddenlayers);
-    //fread(weights, sizeof(float), 36*36, pFile);
-    //fclose(pFile);
     float* output;
     float input[36] = {333.0, 333.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
     //testsoftmaxprime();
