@@ -87,8 +87,8 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
     int layer_sizes[numlayers]; // [36, 2]
     layer_sizes[0] = hiddenlayers[0].n_in;
     for(int i=0; i<numlayers-1; i++){
-	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers-i-2].n_out);
-	layer_sizes[i+1] = hiddenlayers[i].n_out;
+    	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers-i-2].n_out);
+    	layer_sizes[i+1] = hiddenlayers[i].n_out;
     }
     float *errors = (float *) malloc((numlayers-1)*largest_layer_size*sizeof(float));
     //final error = (a_L - y) (*) softmax'(Wx+b), where (*) is the Hadamard (element wise product)
@@ -116,13 +116,6 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
 	for(int j = 0; j < 72; j++) { // 0 to 36
 	    //printf("LAYER_WEIGHTS_INPUT = %f\n", hiddenlayers[i].layer_weights[j]);
 	}
-//	float errors1[2] = {0.0, 0.0};
-//	float *input1 = (float *) malloc(72*sizeof(float));
-//	float *output2 = (float *)malloc(36*sizeof(float));
-
-//	for (int i = 0; i<72; i++) {
-//	    input1[i] = 0.5;
-//	}
 	cblas_sgemv(CblasRowMajor, CblasTrans, 
 		2, // M
 		36, // N
