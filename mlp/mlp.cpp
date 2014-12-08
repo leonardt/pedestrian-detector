@@ -83,24 +83,24 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
 
 void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual) {
     float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual);
-    int largest_layer_size = hiddenlayers[0].n_in; //36
-    int layer_sizes[numlayers]; // [36, 2]
+    int largest_layer_size = hiddenlayers[0].n_in; //300
+    int layer_sizes[numlayers]; // [300, 2]
     layer_sizes[0] = hiddenlayers[0].n_in;
     for(int i=0; i<numlayers-1; i++){
     	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers-i-2].n_out);
     	layer_sizes[i+1] = hiddenlayers[i].n_out;
     }
     float *errors = (float *) malloc((numlayers-1)*largest_layer_size*sizeof(float));
-    //final error = (a_L - y) (*) softmax'(Wx+b), where (*) is the Hadamard (element wise product)
+    //final error is (a_L - y) (*) softmax'(Wx+b), where (*) is the Hadamard (element wise product)
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
 	   errors[(numlayers-2)*largest_layer_size+i] = hiddenlayers[numlayers-2].output[i];
     }
     int output_size = hiddenlayers[numlayers-2].n_out;
     float activation_partial[output_size];
     softmax_prime(hiddenlayers[numlayers-2].v, activation_partial, output_size); // softmax'(Wx+b)
-    printf("softmaxprime      input 	output:       layer 1\n");
-    printf("	0 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[0], activation_partial[0]);  
-    printf("	1 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[1], activation_partial[1]);  
+    //printf("softmaxprime      input 	output:       layer 1\n");
+   // printf("	0 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[0], activation_partial[0]);  
+   // printf("	1 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[1], activation_partial[1]);  
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
 	   errors[(numlayers-2)*largest_layer_size+i] -= actual[i]; //a_L - y [-.5, .5]
 	   ////printf("a_L - y for layer %d index %d = %f \n",numlayers-2, i, errors[numlayers-2][i]); 
@@ -200,7 +200,7 @@ float tanh_prime(float input) {
     return (4*pow(cosh(input), 2)) / pow((cosh(2*input)+1), 2);
 }
 void softmax_prime(float* input, float* output, int n) {
-
+    
 
 /*    float denom = 0.0;
     float denom_prime = 0.0;
