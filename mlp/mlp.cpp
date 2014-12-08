@@ -159,10 +159,56 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
 
     // partial derivitive of C wrt to bias is just error.
     // compute partial derivative of C wrt weights. d = a_(l-1) * error_l
-    float* partialW = malloc(
-    for(int i=numlayers-2; i>=0; i--) {
-	
+    float* partialW1 = (float*) malloc(36*36*sizeof(float));
+    float* partialW2 = (float*) malloc(36*2*sizeof(float));
+    printf( "error at output = [ %f, %f ] \n", *(errors+36), *(errors+37));
+    // dot product of activation of hidden layer (layer 2) with the error of output layer (layer 3)
+    cblas_sgemm(CblasRowMajor,
+	    CblasNoTrans,
+	    CblasNoTrans,
+	    hiddenlayers[1].n_in,  //M (36)
+	    hiddenlayers[1].n_out, //N (2)
+	    1, //K=1
+	    1.0f, //alpha
+	    hiddenlayers[0].output, //matrix A, the activation of layer 2
+	    1, //lda = 1 (don't ask me why)
+	    errors+36,
+	    2, //ldb=2
+	    1.0f, //beta
+	    partialW2, //output
+	    2//ldc=2
+	    );
+    printf( "output of matrix matrix: \n");
+    for(int i=0; i<36; i++){
+       printf(" [ %5f, %5f ]\n", partialW2[i], partialW2[i+36]);
+    }       
+
+    // now compute the partial weights between layer 1 and 2->   activation_1 * error_2
+    printf( "error at hidden layer: \n");
+    for(int i=0; i<36; i++){
+	printf(" %f, ", *(errors+i));
     }
+    // dot product of activation of hidden layer (layer 2) with the error of output layer (layer 3)
+    cblas_sgemm(CblasRowMajor,
+	    CblasNoTrans,
+	    CblasNoTrans,
+	    hiddenlayers[1].n_in,  //M (36)
+	    hiddenlayers[1].n_out, //N (2)
+	    1, //K=1
+	    1.0f, //alpha
+	    hiddenlayers[0].output, //matrix A, the activation of layer 2
+	    1, //lda = 1 (don't ask me why)
+	    errors+36,
+	    2, //ldb=2
+	    1.0f, //beta
+	    partialW2, //output
+	    2//ldc=2
+	    );
+    printf( "output of matrix matrix: \n");
+    for(int i=0; i<36; i++){
+       printf(" [ %5f, %5f ]\n", partialW2[i], partialW2[i+36]);
+    }       
+
 
 }
 
@@ -170,7 +216,9 @@ float tanh_prime(float input) {
     return (4*pow(cosh(input), 2)) / pow((cosh(2*input)+1), 2);
 }
 void softmax_prime(float* input, float* output, int n) {
-    float denom = 0.0;
+
+
+/*    float denom = 0.0;
     float denom_prime = 0.0;
     for (int i=0; i<n; i++) {
         denom += exp(input[i]);
@@ -180,6 +228,7 @@ void softmax_prime(float* input, float* output, int n) {
     for (int i=0; i<n; i++) {
         output[i] = (input[i] * exp(input[i]) * denom - denom_prime*exp(input[i])) / denomsq;
     }
+    */
 }
 void softmax(float *input, float *output, int n) {
     /*
@@ -310,8 +359,10 @@ void testCost(Hidden_Layer* hiddenlayers) {
     float cost1 = cost(input, 36, hiddenlayers, 3, output); 
     assert (cost1 == 0.5);
 }
-int main(int argc, char* argv[]){
 
+
+
+int main(int argc, char* argv[]){
     //testLoss();
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
     int layer_sizes[3] = {36, 36, 2};
@@ -328,11 +379,6 @@ int main(int argc, char* argv[]){
     //void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual) {
     float realoutput[2] = { 1, 0 };
     backprop(input, 36, hiddenlayers, 3, realoutput);
-
-
-
-
-
 
 
 //     float output2[36];
