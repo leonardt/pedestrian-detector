@@ -77,26 +77,35 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
 
 void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual) {
     float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual);
-    int largest_layer_size = hiddenlayers[0].n_in;
+    int largest_layer_size = hiddenlayers[0].n_in; //36
+    int layer_sizes[numlayers]; // [36, 36, 2]
+    layer_sizes[0] = hiddenlayers[0].n_in;
     for(int i=0; i<numlayers-1; i++){
 	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers+i].n_out);
+	layer_sizes[i+1] = hiddenlayers[i].n_out;
     }
-    float errors[numlayers][largest_layer_size];
+    float errors[numlayers-1][largest_layer_size]; // don't do the input layer
     //final error = (a_L - y) (*) softmax'(Wx+b), where (*) is the Hadamard (element wise product)
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
-	errors[numlayers-1][i] = hiddenlayers[numlayers-2].output[i];
+	errors[numlayers-2][i] = hiddenlayers[numlayers-2].output[i];
     }
     int output_size = hiddenlayers[numlayers-2].n_out;
     float activation_partial[output_size];
     softmax_prime(hiddenlayers[numlayers-2].v, activation_partial, output_size); // softmax'(Wx+b)
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
-	errors[numlayers-1][i] -= actual[i]; //a_L - y
-	errors[numlayers-1][i] *= activation_partial[i];
+	errors[numlayers-2][i] -= actual[i]; //a_L - y
+	errors[numlayers-2][i] *= activation_partial[i]; // errors[1] is output layer errors
     }
     // next compute error for all layers
     // error_l = ((w_l+1)^T * error_l+1) (*) softmax'(Wx+b)
-    for(int i = numlayers-2; i>=0; i--) {
-
+    for(int i = numlayers-2; i>0; i--) { //only does i=1
+	// first find (w_i+1)^T * errors[i]
+	cblas_sgemv(CblasRowMajor, CblasTrans, 
+		    hiddenlayers[i].n_out, /* 2 */
+		    hiddenlayers[i].n_in, /* 36 */
+		    1.0f, hiddenlayers[i].layer_weights, hiddenlayers[i].n_in, errors[i+1], 1, 1.0f, errors[i], 1);
+	for(int j = 0; j < hiddenlayers[i].n_in; j++) {
+	    errors[i][j] *= tanh_prime(hiddenlayers[i-1].v;
 
     }
 
