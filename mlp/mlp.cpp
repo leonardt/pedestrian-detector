@@ -19,10 +19,14 @@ void softmax(float *input, float *output, int n);
 void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers);
 void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers); 
 float loss(float* input, float* output, int n);
+float softmax_prime(float* input, float* output, int n);
+float cost(float* x, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* y);
+
+void backprop(int input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual);
 
 class Hidden_Layer {
     /* class definition that represents a hidden layer. On construction computes the hidden layer
-     *  represented by the layer weights, bias vector, induced local field vector and output.   
+     *  represented by the layer weights, bias vector, induced local field vector (Wx+b) and output.   
      *  n_in should be the #elements in input vector and #cols of layer_weights.
      *  n_out is the number of hidden layers and #rows of layer_weights.
      */
@@ -40,7 +44,7 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
     n_in = in;
     n_out = out;
     output = (float *) malloc(n_out*sizeof(float));
-    v = (float *) malloc(n_out*sizeof(float));
+    v = (float *) malloc(n_out*sizeof(float)); 
 }
 void Hidden_Layer::compute_output(float* input, int last_layer) {
     printf("nout:%d, nin:%d \n", n_out, n_in);
@@ -73,14 +77,31 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
 };
 
 
-void backprop(int input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual) {
+void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual) {
     float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual);
-    //final error = (a_L - y) __Hadamard__ softmax'(Wx+b), where Hadamard is element wise product
-    float* a_L = hiddenlayers[numlayers-2].output ;
-    for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
-	a_L[i] -= actual[i];
-	a_L[i] *= softmax_prime(
+    int largest_layer_size = hiddenlayers[0].n_in;
+    for(int i=0; i<numlayers-1; i++){
+	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers+i].n_out);
     }
+    float errors[numlayers][largest_layer_size];
+    //final error = (a_L - y) (*) softmax'(Wx+b), where (*) is the Hadamard (element wise product)
+    for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
+	errors[numlayers-1][i] = hiddenlayers[numlayers-2].output[i];
+    }
+    int output_size = hiddenlayers[numlayers-2].n_out;
+    float activation_partial[output_size];
+    softmax_prime(hiddenlayers[numlayers-2].v, activation_partial, output_size); // softmax'(Wx+b)
+    for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
+	errors[numlayers-1][i] -= actual[i]; //a_L - y
+	errors[numlayers-1][i] *= activation_partial[i];
+    }
+    // next compute error for all layers
+    // error_l = ((w_l+1)^T * error_l+1) (*) softmax'(Wx+b)
+    for(int i = numlayers-2; i>=0; i--) {
+
+
+    }
+
 
 }
 
@@ -215,8 +236,6 @@ int main(int argc, char* argv[]){
     forward_prop(input, 36, hiddenlayers, 3);
     output = hiddenlayers[1].output;
     printf("%f  %f \n", output[0], output[1]);
-
-
 
 
 };
