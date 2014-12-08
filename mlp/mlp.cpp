@@ -95,7 +95,7 @@ void softmax_prime(float* input, float* output, int n) {
     }
     float denomsq = pow(denom, 2);
     for (int i=0; i<n; i++) {
-        output[i] = (input[i] * exp(input[i]) * denomsq - exp(input[i])*denom_prime) / denomsq;
+        output[i] = (input[i] * exp(input[i]) * denom - denom_prime*exp(input[i])) / denomsq;
     }
 }
 void softmax(float *input, float *output, int n) {
@@ -193,7 +193,7 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
 };
 
 void testsoftmaxprime() {
-    float input[36] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
+    float input[36] = {0.23, 0.01, 0.13, 0.01, 0.45, 0.65, 0.14, 0.67, 0.01, 0.12, 0.01, 0.14, 0.98, 0.56, 0.72, 0.24, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
     float output1[36];
     softmax_prime(input, output1, 36);
     for (int i = 0; i < 36; i++) {
