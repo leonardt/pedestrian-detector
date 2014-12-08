@@ -329,12 +329,12 @@ int main(int argc, char* argv[]){
     float in[2] = {0.0, 0.0};
     float output2[36];
     cblas_sgemv(CblasRowMajor, CblasNoTrans, 
-	    36,//hiddenlayers[i].n_out, // 2 
-	    2,//hiddenlayers[i].n_in, // 36 
-	    1.0f,
+	    36, // M
+	    2,	// N
+	    1.0f, //
 	    weights,
-	    2,//hiddenlayers[i].n_in,
-	    in, // input vector
+	    2,
+	    in,
 	    1,
 	    1.0f,
 	    //errors[i-1], // output
