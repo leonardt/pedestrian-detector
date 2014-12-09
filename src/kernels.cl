@@ -53,3 +53,18 @@ void __kernel ocl_tan_h(__global float* a, __global float* v) {
   int i = get_global_id(0);
   a[i] = tanh(v[i]);
 }
+
+inline float tanh_prime(float input) {
+    return (4*pow(cosh(input), 2)) / pow((cosh(2*input)+1), 2);
+}
+
+void __kernel ol_back(__global float* delta, __global float* actual, __global float* prev_out,
+                               __global float* prev_v) {
+  int i = get_global_id(0);
+  delta[i] = (prev_out[i] - actual[i]) * tanh_prime(prev_v[i]);
+}
+
+void __kernel hl_back(__global float* delta, __global float* v) {
+  int i = get_global_id(0);
+  delta[i] *= tanh_prime(v[i]);
+}

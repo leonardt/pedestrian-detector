@@ -39,6 +39,7 @@ class GpuConvPoolLayer {
     cl_kernel conv;
     GpuBatch* output;
     cl_vars_t cv;
+    GpuBatch* delta_bias;
 
     GpuConvPoolLayer(ConvPoolLayer layer, cl_vars_t cvs, cl_kernel kernel): cv(cvs), conv(kernel) {
       num_outputs = layer.num_outputs;
@@ -53,6 +54,9 @@ class GpuConvPoolLayer {
         weights.push_back(weights_set);
         output = new GpuBatch(*layer.output, cv, device);
       }
+      Batch delta(layer.output->batch_size, layer.output->depth, 
+          layer.output->rows, layer.output->cols);
+      delta_bias = new GpuBatch(delta, cv, 0);
     }
 
     void forward(GpuBatch* batch, cl_uint device) {
@@ -73,9 +77,12 @@ class HiddenLayer {
     int num_in;
     int num_out;
     cl_kernel tanh_kern;
+    cl_kernel hl_back_kern;
+    GpuBatch* delta_bias;
 
-    HiddenLayer(int n_in, int n_out, int b_size, cl_vars_t cvs, cl_kernel tanh):
-      num_in(n_in), num_out(n_out), cv(cvs), batch_size(b_size), tanh_kern(tanh) {
+    HiddenLayer(int n_in, int n_out, int b_size, cl_vars_t cvs, cl_kernel tanh,
+        cl_kernel hl_back): num_in(n_in), num_out(n_out), cv(cvs),
+        batch_size(b_size), tanh_kern(tanh), hl_back_kern(hl_back) {
       Weights hidden_layer_weights(0, n_in * n_out, n_in + n_out);
       weights = new GpuWeights(hidden_layer_weights, cv, 0);
       Batch out_batch(b_size, 1, 1, n_out);
@@ -84,12 +91,14 @@ class HiddenLayer {
       v = new GpuBatch(v_batch, cv, 0);
       Weights b(0, n_out, 0);
       bias = new GpuWeights(b, cv, 0);
+      Batch delta(b_size, 1, 1, n_in);
+      delta_bias = new GpuBatch(delta, cv, 0);
     }
 
     void forward(GpuBatch* batch) {
       cl_int err = CL_SUCCESS;
       for (int offset = 0; offset < batch_size; offset++) {
-        err = clblasSgemv(clblasRowMajor, clblasNoTrans, num_in, num_out, 
+        err = clblasSgemv(clblasRowMajor, clblasNoTrans, num_out, num_in, 
                           1.0f, weights->buf, 0, num_in, batch->buf, 
                           offset * num_in, 1, 1.0f, v->buf, offset * num_out, 1,
                           1, &cv.commands[0], 0, NULL, NULL);
@@ -99,6 +108,18 @@ class HiddenLayer {
         CHK_ERR(err);
       }
       ocl_tanh(*output, *v, cv, tanh_kern, 0);
+    }
+    void backward(GpuBatch* prev_bias) {
+      cl_int err = CL_SUCCESS;
+      hl_back_ocl(*delta_bias, *v, hl_back_kern, cv);
+      for (int offset = 0; offset < batch_size; offset++) {
+        err = clblasSgemv(clblasRowMajor, clblasNoTrans, num_out, num_in, 
+                          1.0f, weights->buf, 0, num_in, delta_bias->buf, 
+                          offset * num_in, 1, 1.0f, prev_bias->buf, offset * num_in, 1,
+                          1, &cv.commands[0], 0, NULL, NULL
+            );
+        CHK_ERR(err);
+      }
     }
 };
 
@@ -113,15 +134,22 @@ class OutputLayer {
     cl_kernel tanh_kern;
     int num_in;
     int num_out;
+    GpuBatch* delta_bias;
+    cl_kernel ol_back_kern;
+    cl_kernel hl_back_kern;
 
-    OutputLayer(int n_in, int n_out, int b_size, cl_vars_t cvs, cl_kernel tanh):
-      num_in(n_in), num_out(n_out), cv(cvs), batch_size(b_size), tanh_kern(tanh) {
+    OutputLayer(int n_in, int n_out, int b_size, cl_vars_t cvs, cl_kernel tanh, 
+        cl_kernel ol_back, cl_kernel hl_back): 
+        num_in(n_in), num_out(n_out), cv(cvs), batch_size(b_size), tanh_kern(tanh),
+        ol_back_kern(ol_back), hl_back_kern(hl_back) {
       Weights hidden_layer_weights(0, n_in * n_out, n_in + n_out);
       weights = new GpuWeights(hidden_layer_weights, cv, 0);
       Batch out_batch(b_size, 1, 1, n_out);
       output = new GpuBatch(out_batch, cv, 0);
       Batch v_batch(b_size, 1, 1, n_out);
       v = new GpuBatch(v_batch, cv, 0);
+      Batch delta(b_size, 1, 1, n_in);
+      delta_bias = new GpuBatch(delta, cv, 0);
     }
 
     void forward(GpuBatch* batch) {
@@ -140,5 +168,19 @@ class OutputLayer {
         CHK_ERR(err);
       }
       ocl_tanh(*output, *v, cv, tanh_kern, 0);
+    }
+
+    void backward(GpuBatch* actual, GpuBatch* prev_bias) {
+      ocl_ol_back(*delta_bias, *actual, *output, *v, ol_back_kern, cv);
+      cl_int err = CL_SUCCESS;
+      for (int offset = 0; offset < batch_size; offset++) {
+        err = clblasSgemv(clblasRowMajor, clblasNoTrans, num_out, num_in, 
+                          1.0f, weights->buf, 0, num_in, delta_bias->buf, 
+                          offset * num_in, 1, 1.0f, prev_bias->buf, offset * num_in, 1,
+                          1, &cv.commands[0], 0, NULL, NULL
+            );
+        CHK_ERR(err);
+      }
+      hl_back_ocl(*delta_bias, *v, hl_back_kern, cv);
     }
 };

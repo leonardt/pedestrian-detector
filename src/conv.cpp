@@ -172,3 +172,62 @@ void ocl_tanh(GpuBatch input, GpuBatch v, cl_vars_t cv, cl_kernel kern, cl_uint 
   );
   CHK_ERR(err);
 }
+
+void ocl_ol_back(GpuBatch delta, GpuBatch actual, GpuBatch prev_out, GpuBatch prev_v, cl_kernel kern, cl_vars_t cv) {
+  cl_int err = CL_SUCCESS;
+  size_t global_work_size[2] = {static_cast<size_t>(delta.batch_size * delta.rows * delta.cols * delta.depth)};
+  size_t local_work_size[2] = {512};
+
+  /* Set kernel arguments */
+
+  err = clSetKernelArg(kern, 0, sizeof(cl_mem), &delta.buf);
+  CHK_ERR(err);
+
+  err = clSetKernelArg(kern, 1, sizeof(cl_mem), &actual.buf);
+  CHK_ERR(err);
+
+  err = clSetKernelArg(kern, 2, sizeof(cl_mem), &prev_out.buf);
+  CHK_ERR(err);
+
+  err = clSetKernelArg(kern, 3, sizeof(cl_mem), &prev_v.buf);
+  CHK_ERR(err);
+
+  err = clEnqueueNDRangeKernel(cv.commands[0],
+          kern,
+          1,
+          NULL,
+          global_work_size,
+          local_work_size,
+          0,
+          NULL,
+          NULL
+  );
+  CHK_ERR(err);
+}
+
+
+void hl_back_ocl(GpuBatch delta, GpuBatch v, cl_kernel kern, cl_vars_t cv) {
+  cl_int err = CL_SUCCESS;
+  size_t global_work_size[2] = {static_cast<size_t>(delta.batch_size * delta.rows * delta.cols * delta.depth)};
+  size_t local_work_size[2] = {512};
+
+  /* Set kernel arguments */
+
+  err = clSetKernelArg(kern, 0, sizeof(cl_mem), &delta.buf);
+  CHK_ERR(err);
+
+  err = clSetKernelArg(kern, 1, sizeof(cl_mem), &v.buf);
+  CHK_ERR(err);
+
+  err = clEnqueueNDRangeKernel(cv.commands[0],
+          kern,
+          1,
+          NULL,
+          global_work_size,
+          local_work_size,
+          0,
+          NULL,
+          NULL
+  );
+  CHK_ERR(err);
+}

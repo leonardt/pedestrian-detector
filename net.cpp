@@ -33,7 +33,7 @@ void check_outputs(Batch ocl_out, Batch out) {
 
 int main(int argc, char **argv) {
     srand(time(NULL));
-    if (argc != 2) {
+    if (argc < 2) {
         cout << " Usage: display_image ImageToLoadAndDisplay" << endl;
         return -1;
     }
@@ -46,19 +46,33 @@ int main(int argc, char **argv) {
 
     cl_kernel conv = build_kernel(string("conv"), string("./src/kernels.cl"), cv);
     cl_kernel tanh_kern = build_kernel(string("ocl_tan_h"), string("./src/kernels.cl"), cv);
+    cl_kernel ol_back_kern = build_kernel(string("ol_back"), string("./src/kernels.cl"), cv);
+    cl_kernel hl_back_kern = build_kernel(string("hl_back"), string("./src/kernels.cl"), cv);
 
     cl_int err = CL_SUCCESS;
     Mat image, int_image;
-    VideoCapture sequence(argv[1]);
-    sequence >> int_image;
+    VideoCapture peds(argv[1]);
+    VideoCapture non_peds(argv[2]);
+    peds >> int_image;
     int_image.convertTo(image, CV_32F);
     int batch_size = 512;
     vector<Batch> batches;
+    vector<GpuBatch> actuals;
     vector<GpuBatch> gpu_batches;
     for (cl_uint device = 0; device < cv.num_devices; device++) {
       Batch images(batch_size, 1, image.rows, image.cols);
+      Batch actual(batch_size, 1, 1, 2);
       for (int z = 0; z < batch_size; z++) {
-        sequence >> int_image;
+        float r = (float) rand() / (float) RAND_MAX;
+        if (r > .5) {
+          peds >> int_image;
+          actual.data[z * 2] = 1;
+          actual.data[z * 2 + 1] = -1;
+        } else {
+          non_peds >> int_image;
+          actual.data[z * 2] = -1;
+          actual.data[z * 2 + 1] = 1;
+        }
         int_image.convertTo(image, CV_32F);
         memcpy(&images.data[z * image.rows * image.cols], (float*)image.data, image.total() * image.elemSize());
       }
@@ -69,6 +83,8 @@ int main(int argc, char **argv) {
       }
       batches.push_back(images);
       GpuBatch ocl_images = GpuBatch(images, cv, device);
+      GpuBatch ocl_actual = GpuBatch(actual, cv, device);
+      actuals.push_back(ocl_actual);
       gpu_batches.push_back(ocl_images);
     }
 
@@ -127,10 +143,10 @@ int main(int argc, char **argv) {
     GpuBatch l2_output = *gpu_l2.output;
     HiddenLayer hl1(l2_output.rows * l2_output.cols * l2_output.depth,
                     l2_output.rows * l2_output.cols * l2_output.depth,
-                    l2_output.batch_size, cv, tanh_kern);
+                    l2_output.batch_size, cv, tanh_kern, hl_back_kern);
     hl1.forward(gpu_l2.output);
     OutputLayer ol(l2_output.rows * l2_output.cols * l2_output.depth,
-        2, batch_size, cv, tanh_kern);
+        2, batch_size, cv, tanh_kern, ol_back_kern, hl_back_kern);
     ol.forward(hl1.output);
     {
       GpuBatch out_buf = *ol.output;
@@ -149,6 +165,8 @@ int main(int argc, char **argv) {
         cout << endl;
       }
     }
+    ol.backward(&actuals[0], hl1.delta_bias);
+    hl1.backward(gpu_l2.delta_bias);
 
     cout << "PASSED" << endl;
     cout << "cpu time: " << cpu_total << endl;
