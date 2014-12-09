@@ -313,12 +313,12 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
     if (!read_weights(weights, weights_size)) {
         srand (time(NULL));
         for (int i=0; i<weights_size; i++){
-    	//weights[i] = float(float(rand()%10)/float(10));
-            weights[i] = 0.5;
+    	weights[i] = float(float(rand()%10)/float(10));
+        //    weights[i] = 0.5;
         }
         for (int i = 0; i < bias_size; i++) {
-            //bias[x] = float(float(rand()%10)/float(10));
-            bias[i] = 0.5;
+            bias[i] = float(float(rand()%10)/float(10));
+            //bias[i] = 0.5;
         }
     }
     int weights_offset = 0;
@@ -373,7 +373,7 @@ int main(int argc, char* argv[]){
     float input[36] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
     float* input2 = (float*) malloc(36*sizeof(float));
     for(int i=0; i<36; i++){
-	input2[i] = .01 * (i+1.01);
+	input2[i] = 0.1;
     }
     //cblas_sgemv(CblasRowMajor, CblasNoTrans, 2, 36, 1.0f, input2, 36, input, 1, 1.0f, output, 1);
     output = hiddenlayers[1].output;
