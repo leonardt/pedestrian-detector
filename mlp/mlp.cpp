@@ -37,7 +37,7 @@ class Hidden_Layer {
     int n_in, n_out;
     Hidden_Layer(){};
     Hidden_Layer(float *, float *, int, int);
-    void compute_output(float* input, int last_layer);
+    void compute_output(float* input);
     void update_weights(float* deltas, float learnrate);
     void update_bias(float* deltas, float learnrate);
 };
@@ -49,20 +49,13 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
     output = (float *) malloc(n_out*sizeof(float));
     v = (float *) malloc(n_out*sizeof(float)); 
 }
-void Hidden_Layer::compute_output(float* input, int last_layer) {
+void Hidden_Layer::compute_output(float* input) {
     printf("nout:%d, nin:%d \n", n_out, n_in);
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
     cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
-    if (!last_layer) {
-    	for (int i = 0; i < n_out; i++) {
-    	    v[i] = output[i];
-    	    output[i] = tanh(output[i]);
-        }
-    } else {
-    	for (int i = 0; i < n_out; i++) {
-    	    v[i] = output[i];
-        }
-	    softmax(output, output, n_out);
+    for (int i = 0; i < n_out; i++) {
+    	v[i] = output[i];
+        output[i] = tanh(output[i]);
     }
     printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
 }   
@@ -107,11 +100,10 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
 	exit(1);
     }
     memcpy(input_tanh, input, input_size*sizeof(float));
-    hiddenlayers[0].compute_output(input_tanh, 0);
-    for (int i = 1; i < numlayers-2; i++) {
-	hiddenlayers[i].compute_output(hiddenlayers[i-1].output, 0);
+    hiddenlayers[0].compute_output(input_tanh);
+    for (int i = 1; i < numlayers-1; i++) {
+	   hiddenlayers[i].compute_output(hiddenlayers[i-1].output);
     }
-    hiddenlayers[numlayers-2].compute_output(hiddenlayers[numlayers-3].output, 1);
     free(input_tanh);
 };
 
