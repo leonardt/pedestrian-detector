@@ -18,15 +18,3 @@ tar -xf samples/ped-dataset.tar.gz -C samples/ped-dataset
 $ cmake .
 $ make
 ```
-
-## Visualize optical flow
-To see the flow visualized as colors where color is a direction and intensity is
-the speed
-```shell
-$ ./main samples/lp-right.mpeg
-```
-
-To see the flow visualized as vectors
-```shell
-$ ./main samples/lp-right.mpeg 1
-```
