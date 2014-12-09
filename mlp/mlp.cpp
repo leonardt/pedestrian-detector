@@ -376,12 +376,14 @@ int main(int argc, char* argv[]){
     deltas.weights2 = (float*) malloc(layer_sizes[1]*layer_sizes[2]*sizeof(float));
     deltas.input_error = (float*) malloc(layer_sizes[0]*sizeof(float));
     
-    backprop(input2, 36, hiddenlayers, 3, realoutput, deltas);
+//    backprop(input2, 36, hiddenlayers, 3, realoutput, deltas);
+//void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers) {
+    forward_prop(input2, 36, hiddenlayers, 3);
 
-    printf("deltas: \n");
-    for(int i=0; i<36; i++) {
-	printf(" input offset %3d = %5f  |  bias1 offset = %5f  |  bias2 offset = %5f\n", i, deltas.input_error[i], deltas.bias1[i],deltas.bias2[i]);
-    }
+//    printf("deltas: \n");
+//    for(int i=0; i<36; i++) {
+//	printf(" input offset %3d = %5f  |  bias1 offset = %5f  |  bias2 offset = %5f\n", i, deltas.input_error[i], deltas.bias1[i],deltas.bias2[i]);
+//    }
 
 
 };
