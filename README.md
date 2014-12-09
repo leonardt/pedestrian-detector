@@ -18,3 +18,5 @@ tar -xf samples/ped-dataset.tar.gz -C samples/ped-dataset
 $ cmake .
 $ make
 ```
+
+presentation: https://docs.google.com/presentation/d/1tr-TgtDKfUpWcOwx13fiwZnR7tIPa0wgYoRk3PtsmQc/edit?usp=sharing
