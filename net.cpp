@@ -7,6 +7,7 @@
 #include "src/serial.cpp"
 #include <cstdlib>
 #include <cstdlib>
+#include <clBLAS.h>
 
 using namespace cv;
 using namespace std;
@@ -205,27 +206,14 @@ int main(int argc, char **argv) {
       GpuBatch out_buf = GpuBatch(out, cv, device);
       Batch v = Batch(batch_size, 1, 1, 1);
       GpuBatch v_buf = GpuBatch(v, cv, device);
-      ocl_hidden_layer(batch, weights, weights, out_buf, v_buf, 0, cv, 
-          hidden_layer_kern, device);
+      err = clblasSgemv(clblasRowMajor, clblasNoTrans, 
+                        batch.rows * batch.cols * batch.depth, 
+                        batch.rows * batch.cols * batch.depth, 
+                        1.0f, weights.buf, 0, 1, batch.buf, 0, 1, 1.0f,
+                        out_buf.buf, 0, 1, 2, cv.commands, 0, NULL, NULL);
       ocl_softmax(out_buf, cv, softmax_kern, device);
       hl2_out.push_back(out_buf);
       hl2_v.push_back(v_buf);
-    }
-
-    vector<GpuBatch> hl3_out;
-    vector<GpuBatch> hl3_v;
-    for (cl_uint device = 0; device < cv.num_devices; device++) {
-      GpuBatch batch = hl1_out[device];
-      Weights hidden_layer_weights(0, batch.rows * batch.cols * batch.depth, 1);
-      GpuWeights weights(hidden_layer_weights, cv, device);
-      Batch out = Batch(batch_size, 1, 1, 1);
-      GpuBatch out_buf = GpuBatch(out, cv, device);
-      Batch v = Batch(batch_size, 1, 1, 1);
-      GpuBatch v_buf = GpuBatch(v, cv, device);
-      ocl_hidden_layer(batch, weights, weights, out_buf, v_buf, 0, cv, 
-          hidden_layer_kern, device);
-      hl3_out.push_back(out_buf);
-      hl3_v.push_back(v_buf);
     }
 
     cout << "PASSED" << endl;
