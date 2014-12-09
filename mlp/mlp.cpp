@@ -67,6 +67,11 @@ void Hidden_Layer::compute_output(float* input) {
 	printf("]\n");
     }
     printf("]\n");
+    printf("input: \n[ ");
+    for(int i=0; i<36; i++){
+	printf("%3f, ", input[i]);
+    }
+    printf("]\n");
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
 
     printf("OUTPUT AFTER  SGEMV = [");
@@ -110,6 +115,7 @@ int read_weights(float* weights, int n) {
     weightsfile = fopen("weights", "rb");
     if (weightsfile == NULL) return 0;
     fread(weights, sizeof(float), n, weightsfile);
+    printf("WEIGHTSFILE EXIST\n\n\n\n\n");
     return 1;
 }
 
@@ -125,7 +131,18 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
     if ( !input_tanh ) {
 	exit(1);
     }
+    printf("before memcpy: \n[");
+    for(int i=0; i<input_size; i++){
+//	printf("%5f ,", input[i]);
+    }
+    printf(" ]\n");
     memcpy(input_tanh, input, input_size*sizeof(float));
+
+    printf("after memcpy: \n[");
+    for(int i=0; i<input_size; i++){
+//	printf("%5f ,", input_tanh[i]);
+    }
+    printf(" ]\n");
     hiddenlayers[0].compute_output(input_tanh);
     for (int i = 1; i < numlayers-1; i++) {
 	   hiddenlayers[i].compute_output(hiddenlayers[i-1].output);
@@ -142,7 +159,8 @@ struct delta{
 };
 
 void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual, delta& deltas) {
-    float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual);
+    //float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual); // calls forward_prop
+    forward_prop(input, input_size, hiddenlayers, numlayers);
     int layer_sizes[numlayers]; // [300,300, 2]
     layer_sizes[0] = hiddenlayers[0].n_in;
     for(int i=0; i<numlayers-1; i++){
@@ -327,12 +345,12 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
     if (!read_weights(weights, weights_size)) {
         srand (time(NULL));
         for (int i=0; i<weights_size; i++){
-    	weights[i] = float(float(rand()%10)/float(10));
-        //    weights[i] = 0.5;
+	   //weights[i] = float(float(rand()%10)/float(10));
+            weights[i] = 0.5;
         }
         for (int i = 0; i < bias_size; i++) {
-            bias[i] = float(float(rand()%10)/float(10));
-            //bias[i] = 0.5;
+            //bias[i] = float(float(rand()%10)/float(10));
+            bias[i] = 0.5;
         }
     }
     int weights_offset = 0;
@@ -379,6 +397,7 @@ void testCost(Hidden_Layer* hiddenlayers) {
 
 
 int main(int argc, char* argv[]){
+    /*
     //testLoss();
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
     int layer_sizes[3] = {36, 36, 2};
@@ -411,5 +430,29 @@ int main(int argc, char* argv[]){
 //	printf(" input offset %3d = %5f  |  bias1 offset = %5f  |  bias2 offset = %5f\n", i, deltas.input_error[i], deltas.bias1[i],deltas.bias2[i]);
 //    }
 
+
+
+
+
+*/
+
+
+    float input[36] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
+    float* output = (float *) malloc(36*sizeof(float));
+    int weights_size = 74;
+    float* weights = (float*) malloc(weights_size*sizeof(float));
+    if (!read_weights(weights, weights_size)) {
+        srand (time(NULL));
+        for (int i=0; i<weights_size; i++){
+            weights[i] = 0.5;
+        }
+    }
+    float* input3 = (float *) malloc(36*sizeof(float));
+    for(int i=0; i<36; i++){
+	input3[i] = tanh(input[i]);
+    }
+    printf("INPUT AFTER TANH = ["); for(int i=0; i<36; i++){ printf("%f, ", input3[i]); } printf( " ]\n");
+    cblas_sgemv(CblasRowMajor, CblasNoTrans, 36, 36, 1.0f, weights, 36, input3, 1, 1.0f, output, 1); //computes Wx
+    printf("OUTPUT AFTER  SGEMV = ["); for(int i=0; i<36; i++){ printf("%f, ", output[i]); } printf( " ]\n");
 
 };
