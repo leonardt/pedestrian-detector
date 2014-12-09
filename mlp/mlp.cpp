@@ -47,33 +47,21 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
     n_in = in;
     n_out = out;
     output = (float *) malloc(n_out*sizeof(float));
+    if (!output) {
+	exit(1);
+    }
     v = (float *) malloc(n_out*sizeof(float)); 
 }
 void Hidden_Layer::compute_output(float* input) {
     printf("nout:%d, nin:%d \n", n_out, n_in);
+    printf("OUTPUT BEFORE SGEMV = ["); for(int i=0; i<n_out; i++){ printf("%f, ", output[i]); } printf( " ]\n");
 
-    printf("OUTPUT BEFORE SGEMV = [");
-    for(int i=0; i<n_out; i++){
-	printf("%f, ", output[i]);
-    }
-    printf( " ]\n");
-
-    printf("layer_weights: \n[ ");
-    for(int i=0; i<36; i++){
-	printf("[");
-	for(int j=0; j<36; j++){
-	    printf("%3f, ",layer_weights[i*36+j]);
-	}
-	printf("]\n");
-    }
-    printf("]\n");
-    printf("input: \n[ ");
-    for(int i=0; i<36; i++){
-	printf("%3f, ", input[i]);
-    }
-    printf("]\n");
-    cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
-
+    printf("input: \n[ "); for(int i=0; i<36; i++){ printf("%3f, ", input[i]); } printf("]\n");
+    float* output2 = (float*) malloc(36*sizeof(float)); if(!output2){exit(1);}
+    output[3] = 333.33;
+    cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output2, 1); //computes Wx
+    memcpy(output, output2, 36*sizeof(float));
+    free(output2);
     printf("OUTPUT AFTER  SGEMV = [");
     for(int i=0; i<n_out; i++){
 	printf("%f, ", output[i]);
@@ -147,7 +135,7 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
     for (int i = 1; i < numlayers-1; i++) {
 	   hiddenlayers[i].compute_output(hiddenlayers[i-1].output);
     }
-    free(input_tanh);
+    //free(input_tanh);
 };
 
 struct delta{
@@ -275,7 +263,7 @@ void softmax_prime(float* input, float* output, int n) {
 	    output[k+n*i] = interoutput[i] * (delta - interoutput[k]);
 	}
     }
-    free(interoutput);
+    //free(interoutput);
 }
 void softmax(float *input, float *output, int n) {
     /*
@@ -397,7 +385,7 @@ void testCost(Hidden_Layer* hiddenlayers) {
 
 
 int main(int argc, char* argv[]){
-    /*
+    
     //testLoss();
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
     int layer_sizes[3] = {36, 36, 2};
@@ -434,13 +422,15 @@ int main(int argc, char* argv[]){
 
 
 
-*/
 
+/*
 
     float input[36] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
     float* output = (float *) malloc(36*sizeof(float));
-    int weights_size = 74;
+    if (!output){exit(1);}
+    int weights_size = 36*36+36*2;
     float* weights = (float*) malloc(weights_size*sizeof(float));
+    if(!weights){exit(1);}
     if (!read_weights(weights, weights_size)) {
         srand (time(NULL));
         for (int i=0; i<weights_size; i++){
@@ -448,11 +438,15 @@ int main(int argc, char* argv[]){
         }
     }
     float* input3 = (float *) malloc(36*sizeof(float));
+    if(!input3){exit(1);}
     for(int i=0; i<36; i++){
 	input3[i] = tanh(input[i]);
     }
     printf("INPUT AFTER TANH = ["); for(int i=0; i<36; i++){ printf("%f, ", input3[i]); } printf( " ]\n");
+
     cblas_sgemv(CblasRowMajor, CblasNoTrans, 36, 36, 1.0f, weights, 36, input3, 1, 1.0f, output, 1); //computes Wx
+
     printf("OUTPUT AFTER  SGEMV = ["); for(int i=0; i<36; i++){ printf("%f, ", output[i]); } printf( " ]\n");
+*/
 
 };
