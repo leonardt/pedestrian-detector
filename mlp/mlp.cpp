@@ -159,6 +159,7 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
     //final error is (a_L - y) (*) tanh'(Wx+b), where (*) is the Hadamard (element wise product)
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
 	   deltas.bias2[i] = hiddenlayers[numlayers-2].output[i];
+	   printf( "deltas.bias2[%d] = %f\n", i, deltas.bias2[i]);
     }
     int output_size = hiddenlayers[numlayers-2].n_out; //300
     // float activation_partial[output_size];
@@ -409,14 +410,14 @@ int main(int argc, char* argv[]){
     deltas.weights2 = (float*) malloc(layer_sizes[1]*layer_sizes[2]*sizeof(float));
     deltas.input_error = (float*) malloc(layer_sizes[0]*sizeof(float));
     
-//    backprop(input2, 36, hiddenlayers, 3, realoutput, deltas);
+    backprop(input2, 36, hiddenlayers, 3, realoutput, deltas);
 //void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers) {
-    forward_prop(input2, 36, hiddenlayers, 3);
+//    forward_prop(input2, 36, hiddenlayers, 3);
 
-//    printf("deltas: \n");
-//    for(int i=0; i<36; i++) {
-//	printf(" input offset %3d = %5f  |  bias1 offset = %5f  |  bias2 offset = %5f\n", i, deltas.input_error[i], deltas.bias1[i],deltas.bias2[i]);
-//    }
+    printf("deltas: \n");
+    for(int i=0; i<36; i++) {
+	printf(" input offset %3d = %5f  |  bias1 offset = %5f  |  bias2 offset = %5f\n", i, deltas.input_error[i], deltas.bias1[i],deltas.bias2[i]);
+    }
 
 
 
