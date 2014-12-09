@@ -2,6 +2,7 @@
 #include "conv.cpp"
 #include "serial.cpp"
 #include "types.h"
+#include <clBLAS.h>
 
 using namespace std;
 
@@ -58,5 +59,86 @@ class GpuConvPoolLayer {
       ocl_conv(*batch, *output, weights[device], bias, w, cv, conv, device);
       cl_int err = CL_SUCCESS;
       err = clFinish(cv.commands[device]);
+    }
+};
+
+class HiddenLayer {
+  public:
+    GpuWeights* weights;
+    GpuWeights* bias;
+    GpuBatch* output;
+    GpuBatch* v;
+    cl_vars_t cv;
+    int batch_size;
+    int num_in;
+    int num_out;
+    cl_kernel tanh_kern;
+
+    HiddenLayer(int n_in, int n_out, int b_size, cl_vars_t cvs, cl_kernel tanh):
+      num_in(n_in), num_out(n_out), cv(cvs), batch_size(b_size), tanh_kern(tanh) {
+      Weights hidden_layer_weights(0, n_in * n_out, n_in + n_out);
+      weights = new GpuWeights(hidden_layer_weights, cv, 0);
+      Batch out_batch(b_size, 1, 1, n_out);
+      output = new GpuBatch(out_batch, cv, 0);
+      Batch v_batch(b_size, 1, 1, n_out);
+      v = new GpuBatch(v_batch, cv, 0);
+      Weights b(0, n_out, 0);
+      bias = new GpuWeights(b, cv, 0);
+    }
+
+    void forward(GpuBatch* batch) {
+      cl_int err = CL_SUCCESS;
+      for (int offset = 0; offset < batch_size; offset++) {
+        err = clblasSgemv(clblasRowMajor, clblasNoTrans, num_in, num_out, 
+                          1.0f, weights->buf, 0, num_in, batch->buf, 
+                          offset * num_in, 1, 1.0f, v->buf, offset * num_out, 1,
+                          1, &cv.commands[0], 0, NULL, NULL);
+        CHK_ERR(err);
+        err = clblasSaxpy(num_out, 1.0f, bias->buf, 0, 1, v->buf, 
+            offset * num_out, 1, 1, &cv.commands[0], 0, NULL, NULL);
+        CHK_ERR(err);
+      }
+      ocl_tanh(*output, *v, cv, tanh_kern, 0);
+    }
+};
+
+class OutputLayer {
+  public:
+    GpuWeights* weights;
+    GpuWeights* bias;
+    GpuBatch* output;
+    GpuBatch* v;
+    cl_vars_t cv;
+    int batch_size;
+    cl_kernel tanh_kern;
+    int num_in;
+    int num_out;
+
+    OutputLayer(int n_in, int n_out, int b_size, cl_vars_t cvs, cl_kernel tanh):
+      num_in(n_in), num_out(n_out), cv(cvs), batch_size(b_size), tanh_kern(tanh) {
+      Weights hidden_layer_weights(0, n_in * n_out, n_in + n_out);
+      weights = new GpuWeights(hidden_layer_weights, cv, 0);
+      Batch out_batch(b_size, 1, 1, n_out);
+      output = new GpuBatch(out_batch, cv, 0);
+      Batch v_batch(b_size, 1, 1, n_out);
+      v = new GpuBatch(v_batch, cv, 0);
+    }
+
+    void forward(GpuBatch* batch) {
+      cl_int err = CL_SUCCESS;
+      for (int offset = 0; offset < batch_size; offset++) {
+        err = clblasSgemv(clblasRowMajor, clblasNoTrans, 
+                          num_out, 
+                          num_in, 
+                          1.0f, weights->buf, 
+                          0, num_in,
+                          batch->buf, 
+                          offset * num_in, 1,
+                          1.0f, v->buf, 
+                          offset * num_out, 1, 1,
+                          &cv.commands[0], 0, NULL, NULL);
+        CHK_ERR(err);
+      }
+      ocl_tanh(*output, *v, cv, tanh_kern, 0);
     }
 };

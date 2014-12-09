@@ -6,7 +6,6 @@
 #include "src/layer.cpp"
 #include "src/types.h"
 #include <cstdlib>
-#include <clBLAS.h>
 
 using namespace cv;
 using namespace std;
@@ -97,111 +96,51 @@ int main(int argc, char **argv) {
     gpu_l2.forward(gpu_l1.output, 0);
     err = clFinish(cv.commands[0]);
     gpu_total = timestamp() - gpu_total;
-    for (cl_uint device = 0; device < cv.num_devices; device++) {
-      GpuBatch out_buf = *gpu_l1.output;
-      Batch out(out_buf.batch_size, out_buf.depth, out_buf.rows, out_buf.cols);
-      err = clEnqueueReadBuffer(cv.commands[device], out_buf.buf, true, 0,
-                                out_buf.batch_size * out_buf.rows * out_buf.cols *
-                                out_buf.depth * sizeof(float),
-                                out.data, 0, NULL, NULL);
-      CHK_ERR(err);
-      err = clFinish(cv.commands[device]);
-      CHK_ERR(err);
+    GpuBatch out_buf = *gpu_l1.output;
+    Batch out(out_buf.batch_size, out_buf.depth, out_buf.rows, out_buf.cols);
+    err = clEnqueueReadBuffer(cv.commands[0], out_buf.buf, true, 0,
+                              out_buf.batch_size * out_buf.rows * out_buf.cols *
+                              out_buf.depth * sizeof(float),
+                              out.data, 0, NULL, NULL);
+    CHK_ERR(err);
+    err = clFinish(cv.commands[0]);
+    CHK_ERR(err);
 
-      check_outputs(out, *cpu_l1.output);
-      GpuBatch l2_out_buf = *gpu_l2.output;
-      Batch l2_out(l2_out_buf.batch_size, l2_out_buf.depth, l2_out_buf.rows, l2_out_buf.cols);
-      err = clEnqueueReadBuffer(cv.commands[device], l2_out_buf.buf, true, 0,
-                                l2_out_buf.batch_size * l2_out_buf.rows * l2_out_buf.cols *
-                                l2_out_buf.depth * sizeof(float),
-                                l2_out.data, 0, NULL, NULL);
-      CHK_ERR(err);
-      err = clFinish(cv.commands[device]);
-      CHK_ERR(err);
+    check_outputs(out, *cpu_l1.output);
+    GpuBatch l2_out_buf = *gpu_l2.output;
+    Batch l2_out(l2_out_buf.batch_size, l2_out_buf.depth, l2_out_buf.rows, l2_out_buf.cols);
+    err = clEnqueueReadBuffer(cv.commands[0], l2_out_buf.buf, true, 0,
+                              l2_out_buf.batch_size * l2_out_buf.rows * l2_out_buf.cols *
+                              l2_out_buf.depth * sizeof(float),
+                              l2_out.data, 0, NULL, NULL);
+    CHK_ERR(err);
+    err = clFinish(cv.commands[0]);
+    CHK_ERR(err);
 
-      check_outputs(l2_out, *cpu_l2.output);
-    }
-    exit(0);
+    check_outputs(l2_out, *cpu_l2.output);
     err = clblasSetup();
     if (err != CL_SUCCESS) {
       printf("clblasSetup() failed with %d\n", err);
       return 1;
     }
     // hidden layer
-    vector<GpuBatch> hl1_out;
-    vector<GpuBatch> hl1_v;
-    for (cl_uint device = 0; device < 1; device++) {
-      GpuBatch batch = *gpu_l2.output;
-      Weights hidden_layer_weights(0, batch.rows * batch.cols * batch.depth * 
-          batch.rows * batch.cols * batch.depth, batch.rows * batch.cols * batch.depth);
-      GpuWeights weights(hidden_layer_weights, cv, device);
-      Weights bias(0, batch.rows * batch.cols * batch.depth, 0);
-      GpuWeights bias_buf(bias, cv, device);
-      Batch out = Batch(batch.batch_size, batch.rows, batch.cols, batch.depth);
-      GpuBatch out_buf = GpuBatch(out, cv, device);
-      Batch v = Batch(batch.batch_size, batch.rows, batch.cols, batch.depth);
-      GpuBatch v_buf = GpuBatch(v, cv, device);
-      for (int offset = 0; offset < batch.batch_size; offset++) {
-        err = clblasSgemv(clblasRowMajor, clblasNoTrans, 
-                          batch.rows * batch.cols * batch.depth, 
-                          batch.rows * batch.cols * batch.depth, 
-                          1.0f, weights.buf, 
-                          0, batch.rows * batch.cols * batch.depth,
-                          batch.buf, 
-                          offset * batch.rows * batch.cols * batch.depth, 1,
-                          1.0f, v_buf.buf, 
-                          offset * batch.rows * batch.cols * batch.depth, 1, 1,
-                          &cv.commands[device], 0, NULL, NULL);
-        CHK_ERR(err);
-        err = clblasSaxpy(batch.rows * batch.cols * batch.depth, 1.0f, 
-                          bias_buf.buf, 0, 1,
-                          v_buf.buf,
-                          offset * batch.rows * batch.cols * batch.depth, 1,
-                          1, &cv.commands[device], 0, NULL, NULL);
-        CHK_ERR(err);
-      }
-      ocl_tanh(out_buf, v_buf, cv, tanh_kern, device);
-      hl1_out.push_back(out_buf);
-      hl1_v.push_back(v_buf);
-    }
-    vector<GpuBatch> hl2_out;
-    vector<GpuBatch> hl2_v;
-    for (cl_uint device = 0; device < 1; device++) {
-      GpuBatch batch = hl1_out[device];
-      Weights hidden_layer_weights(0, batch.rows * batch.cols * batch.depth * 2,
-          batch.rows * batch.cols * batch.depth);
-      GpuWeights weights(hidden_layer_weights, cv, device);
-      Batch out = Batch(batch.batch_size, 1, 1, 2);
-      GpuBatch out_buf = GpuBatch(out, cv, device);
-      Batch v = Batch(batch.batch_size, 1, 1, 2);
-      GpuBatch v_buf = GpuBatch(v, cv, device);
-      for (int offset = 0; offset < batch.batch_size; offset++) {
-        err = clblasSgemv(clblasRowMajor, clblasNoTrans, 
-                          2,
-                          batch.rows * batch.cols * batch.depth, 
-                          1.0f, weights.buf, 
-                          0, batch.rows * batch.cols * batch.depth,
-                          batch.buf, 
-                          offset * batch.rows * batch.cols * batch.depth, 1,
-                          1.0f, v_buf.buf, 
-                          offset * 2, 1, 1,
-                          &cv.commands[device], 0, NULL, NULL);
-        CHK_ERR(err);
-      }
-      ocl_tanh(out_buf, v_buf, cv, tanh_kern, device);
-      hl2_out.push_back(out_buf);
-      hl2_v.push_back(v_buf);
-      clFinish(cv.commands[device]);
-    }
-    for (cl_uint device = 0; device < 1; device++) {
-      GpuBatch out_buf = hl2_out[device];
+    GpuBatch l2_output = *gpu_l2.output;
+    HiddenLayer hl1(l2_output.rows * l2_output.cols * l2_output.depth,
+                    l2_output.rows * l2_output.cols * l2_output.depth,
+                    l2_output.batch_size, cv, tanh_kern);
+    hl1.forward(gpu_l2.output);
+    OutputLayer ol(l2_output.rows * l2_output.cols * l2_output.depth,
+        2, batch_size, cv, tanh_kern);
+    ol.forward(hl1.output);
+    {
+      GpuBatch out_buf = *ol.output;
       float* out = new float[batch_size * out_buf.rows * out_buf.cols * out_buf.depth];
-      err = clEnqueueReadBuffer(cv.commands[device], out_buf.buf, true, 0,
+      err = clEnqueueReadBuffer(cv.commands[0], out_buf.buf, true, 0,
                                 batch_size * out_buf.rows * out_buf.cols *
                                 out_buf.depth * sizeof(float),
                                 out, 0, NULL, NULL);
       CHK_ERR(err);
-      err = clFinish(cv.commands[device]);
+      err = clFinish(cv.commands[0]);
       CHK_ERR(err);
       for (int i = 0; i < out_buf.rows; i++) {
         for (int j = 0; j < out_buf.cols; j++ ) {
