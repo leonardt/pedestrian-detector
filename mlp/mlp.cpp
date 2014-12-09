@@ -51,17 +51,31 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
 }
 void Hidden_Layer::compute_output(float* input) {
     printf("nout:%d, nin:%d \n", n_out, n_in);
-    cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
-    cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
-    for (int i = 0; i < n_out; i++) {
-    	v[i] = output[i];
-        output[i] = tanh(output[i]);
-    }
-    printf("OUTPUT = [");
+
+    printf("OUTPUT BEFORE SGEMV = [");
     for(int i=0; i<n_out; i++){
 	printf("%f, ", output[i]);
     }
     printf( " ]\n");
+
+
+    cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
+
+    printf("OUTPUT AFTER  SGEMV = [");
+    for(int i=0; i<n_out; i++){
+	printf("%f, ", output[i]);
+    }
+    printf( " ]\n");
+
+    cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
+
+
+    for (int i = 0; i < n_out; i++) {
+    	v[i] = output[i];
+        output[i] = tanh(output[i]);
+    }
+
+
 }   
 void Hidden_Layer::update_weights(float* deltas, float learnrate) {
     for (int i = 0; i < n_out*n_in; i++) {
