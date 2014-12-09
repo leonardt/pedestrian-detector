@@ -57,7 +57,11 @@ void Hidden_Layer::compute_output(float* input) {
     	v[i] = output[i];
         output[i] = tanh(output[i]);
     }
-    printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
+    printf("OUTPUT = [");
+    for(int i=0; i<n_out; i++){
+	printf("%f, ", output[i]);
+    }
+    printf( " ]\n");
 }   
 void Hidden_Layer::update_weights(float* deltas, float learnrate) {
     for (int i = 0; i < n_out*n_in; i++) {
