@@ -58,7 +58,15 @@ void Hidden_Layer::compute_output(float* input) {
     }
     printf( " ]\n");
 
-
+    printf("layer_weights: \n[ ");
+    for(int i=0; i<36; i++){
+	printf("[");
+	for(int j=0; j<36; j++){
+	    printf("%3f, ",layer_weights[i*36+j]);
+	}
+	printf("]\n");
+    }
+    printf("]\n");
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
 
     printf("OUTPUT AFTER  SGEMV = [");
@@ -223,10 +231,10 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
 	    tanh_input, //matrix A, the activation of layer 1 (size 300 by 1).  i.e. tanh(input)
 	    1, //lda = 1 (don't ask me why)
 	    deltas.bias1, //(size 300 by 1)
-	    300, //ldb=2
+	    hiddenlayers[0].n_out, //
 	    1.0f, //beta
 	    deltas.weights1, //output (300 by 300)
-	    300//ldc=2
+	    hiddenlayers[0].n_out//
 	    );
 
 }
