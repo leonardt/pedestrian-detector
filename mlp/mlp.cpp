@@ -21,7 +21,8 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers);
 float loss(float* input, float* output, int n);
 void softmax_prime(float* input, float* output, int n);
 float cost(float* x, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* y);
-void backprop(int input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual);
+struct delta;
+void backprop(int input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual, delta& deltas);
 float tanh_prime(float input);
 
 class Hidden_Layer {
@@ -74,125 +75,137 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
      * 	       	   dim[dim_size-1] is 1 for our binary classifier.
      * @param sim_size: size of dim array
      */
-     hiddenlayers[0].compute_output(input, 0);
-     for (int i = 1; i < numlayers-2; i++) {
-        hiddenlayers[i].compute_output(hiddenlayers[i-1].output, 0);
-     }
-     hiddenlayers[numlayers-2].compute_output(hiddenlayers[numlayers-3].output, 1);
+    float* input_tanh = (float*) malloc(input_size*sizeof(float));
+    if ( !input_tanh ) {
+	exit(1);
+    }
+    memcpy(input_tanh, input, input_size*sizeof(float));
+    hiddenlayers[0].compute_output(input, 0);
+    for (int i = 1; i < numlayers-2; i++) {
+	hiddenlayers[i].compute_output(hiddenlayers[i-1].output, 0);
+    }
+    hiddenlayers[numlayers-2].compute_output(hiddenlayers[numlayers-3].output, 1);
+    free(input_tanh);
 };
 
-void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual) {
+struct delta{
+    float* input_error;
+    float* bias1;
+    float* bias2;
+    float* weights1;
+    float* weights2;
+};
+
+void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual, delta& deltas) {
     float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual);
     int largest_layer_size = hiddenlayers[0].n_in; //300
-    int layer_sizes[numlayers]; // [300, 2]
+    int layer_sizes[numlayers]; // [300,300, 2]
     layer_sizes[0] = hiddenlayers[0].n_in;
     for(int i=0; i<numlayers-1; i++){
     	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers-i-2].n_out);
     	layer_sizes[i+1] = hiddenlayers[i].n_out;
     }
-    float *errors = (float *) malloc((numlayers-1)*largest_layer_size*sizeof(float));
-    //final error is (a_L - y) (*) softmax'(Wx+b), where (*) is the Hadamard (element wise product)
+    */
+    if ( !(deltas.bias1 && deltas.bias2 && deltas.weights1 && deltas.weights2 && deltas.input_error) ) { exit(1); }
+
+    //float *errors = (float *) malloc((numlayers)*largest_layer_size*sizeof(float));
+    //final error is (a_L - y) (*) tanh'(Wx+b), where (*) is the Hadamard (element wise product)
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
-	   errors[(numlayers-2)*largest_layer_size+i] = hiddenlayers[numlayers-2].output[i];
+	//errors[(numlayers-1)*largest_layer_size+i] = hiddenlayers[numlayers-2].output[i];
+	deltas.bias2[i] = hiddenlayers[numlayers-2].output[i];
     }
-    int output_size = hiddenlayers[numlayers-2].n_out;
-    float activation_partial[output_size];
-    softmax_prime(hiddenlayers[numlayers-2].v, activation_partial, output_size); // softmax'(Wx+b)
+    int output_size = hiddenlayers[numlayers-2].n_out; //300
+   // float activation_partial[output_size];
+    //softmax_prime(hiddenlayers[numlayers-2].v, activation_partial, output_size); // softmax'(Wx+b)
     //printf("softmaxprime      input 	output:       layer 1\n");
    // printf("	0 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[0], activation_partial[0]);  
    // printf("	1 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[1], activation_partial[1]);  
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
-	   errors[(numlayers-2)*largest_layer_size+i] -= actual[i]; //a_L - y [-.5, .5]
+	   //errors[(numlayers-1)*largest_layer_size+i] -= actual[i]; //a_L - y [-.5, .5]
+	   deltas.bias2[i] -= actual[i]; // a_L - y
 	   ////printf("a_L - y for layer %d index %d = %f \n",numlayers-2, i, errors[numlayers-2][i]); 
-	   errors[(numlayers-2)*largest_layer_size+i] *= activation_partial[i]; // errors[1] is output layer errors
+	   //errors[(numlayers-1)*largest_layer_size+i] *= tanh_prime(hiddenlayers[numlayers-2].v[i]); // errors[1] is output layer errors
+	   deltas.bias2[i] *= tanh_prime(hiddenlayers[numlayers-2].v[i]); // errors[1] is output layer errors
     }
-    // next compute error for all layers
-    // error_l = ((w_l+1)^T * error_l+1) (*) softmax'(Wx+b)
-    for(int i = numlayers-2; i>0; i--) { //only does i=1
-	// first find (w_i+1)^T * errors[i]
-	for(int j = 0; j < 2; j++) { // 0 to 36
-	    //printf("INPUT = %f\n", errors[i*largest_layer_size+j]);
-	}
-	for(int j = 0; j < 72; j++) { // 0 to 36
-	    //printf("LAYER_WEIGHTS_INPUT = %f\n", hiddenlayers[i].layer_weights[j]);
-	}
-	cblas_sgemv(CblasRowMajor, CblasTrans, 
-		2, // M
-		36, // N
-		1.0f, //
-		hiddenlayers[i].layer_weights,
-		36,
-		errors+largest_layer_size,
-		1,
-		1.0f,
-		//errors[i-1], // output
-		errors, // output
-		1);
-	for(int j = 0; j < 36; j++) { // 0 to 36
-	    //printf("AFTER errors[%d][%d] = %f\n", 0, j, errors[j]);
-	}
-	for(int j = 0; j < hiddenlayers[i].n_in; j++) { // 0 to 36
-	    ////printf("AFTER errors[%d][%d] = %f\n", i-1, j, output2[j]);
-	    //errors[i-1][j] *= tanh_prime(hiddenlayers[i-1].v[j]);
-	    errors[(i-1)*largest_layer_size + j] = errors[j] * tanh_prime(hiddenlayers[i-1].v[j]);
-	}
+    // next compute error for all layers (layer 1-input and 2-hidden). error_l = ((w_l+1)^T * error_l+1) (*) tanh'(Wx+b)
+    // do layer 2 (bias1).  first find (w_i+1)^T * errors[i]
+    cblas_sgemv(CblasRowMajor, CblasTrans, 
+	    layer_sizes[2], // M = 2
+	    layer_sizes[1], // N = 300
+	    1.0f, //
+	    hiddenlayers[1].layer_weights, //weights between this layer and the next
+	    layer_sizes[1], // lda = 300
+	    deltas.bias2, //error at the next layer
+	    1,
+	    1.0f,
+	    deltas.bias1, // output
+	    1);
+    for(int j = 0; j < hiddenlayers[1].n_in; j++) { // 0 to 300
+	deltas.bias1[j] *= tanh_prime(hiddenlayers[0].v[j]);
     }
+    
+    // next do layer 1 (input_error).  first find (w_i+1)^T * errors[i]
+    cblas_sgemv(CblasRowMajor, CblasTrans, 
+	    layer_sizes[1], // M = 300
+	    layer_sizes[0], // N = 300
+	    1.0f, //
+	    hiddenlayers[0].layer_weights, //weights between this layer and the next
+	    layer_sizes[0], // lda = 300
+	    deltas.bias1, //error at the next layer
+	    1,
+	    1.0f,
+	    deltas.input_error, // output
+	    1);
+    // for the input layer, the activation is just the input vector
+    for(int j = 0; j < hiddenlayers[0].n_in; j++) { // 0 to 300
+	deltas.input_error[j] *= tanh_prime(input[j]);
+    }
+
     printf("softmaxprime      input 	output:        layer 0\n");
     printf("	0 		%f 	       \n", hiddenlayers[numlayers-3].v[0]);  
     printf("	1 		%f 	       \n", hiddenlayers[numlayers-3].v[1]);  
 
     // partial derivitive of C wrt to bias is just error.
     // compute partial derivative of C wrt weights. d = a_(l-1) * error_l
-    float* partialW1 = (float*) malloc(36*36*sizeof(float));
-    float* partialW2 = (float*) malloc(36*2*sizeof(float));
-    printf( "error at output = [ %f, %f ] \n", *(errors+36), *(errors+37));
+    // compute deltas.weights	
+
     // dot product of activation of hidden layer (layer 2) with the error of output layer (layer 3)
     cblas_sgemm(CblasRowMajor,
 	    CblasNoTrans,
 	    CblasNoTrans,
-	    hiddenlayers[1].n_in,  //M (36)
+	    hiddenlayers[1].n_in,  //M 300
 	    hiddenlayers[1].n_out, //N (2)
 	    1, //K=1
 	    1.0f, //alpha
-	    hiddenlayers[0].output, //matrix A, the activation of layer 2
+	    hiddenlayers[0].output, //matrix A, the activation of layer 2 (size 300 by 1) 
 	    1, //lda = 1 (don't ask me why)
-	    errors+36,
+	    deltas.bias2, //(size 1 by 2)
 	    2, //ldb=2
 	    1.0f, //beta
-	    partialW2, //output
+	    deltas.weights2, //output
 	    2//ldc=2
 	    );
-    printf( "output of matrix matrix: \n");
-    for(int i=0; i<36; i++){
-       printf(" [ %5f, %5f ]\n", partialW2[i], partialW2[i+36]);
-    }       
-
-    // now compute the partial weights between layer 1 and 2->   activation_1 * error_2
-    printf( "error at hidden layer: \n");
-    for(int i=0; i<36; i++){
-	printf(" %f, ", *(errors+i));
+    float* tanh_input = (float*) malloc(input_size*sizeof(float));
+    if ( !tanh_input ) {exit(1);};
+    for ( int i=0; i<input_size; i++) {
+	tanh_input[i] = tanh(input[i]);
     }
-    // dot product of activation of hidden layer (layer 2) with the error of output layer (layer 3)
+    // now compute the partial weights between layer 1 and 2->   activation_1 * error_2
     cblas_sgemm(CblasRowMajor,
 	    CblasNoTrans,
 	    CblasNoTrans,
-	    hiddenlayers[1].n_in,  //M (36)
-	    hiddenlayers[1].n_out, //N (2)
+	    hiddenlayers[0].n_in,  //M (300)
+	    hiddenlayers[0].n_out, //N (300)
 	    1, //K=1
 	    1.0f, //alpha
-	    hiddenlayers[0].output, //matrix A, the activation of layer 2
+	    tanh_input, //matrix A, the activation of layer 1 (size 300 by 1).  i.e. tanh(input)
 	    1, //lda = 1 (don't ask me why)
-	    errors+36,
-	    2, //ldb=2
+	    deltas.bias1, //(size 300 by 1)
+	    300, //ldb=2
 	    1.0f, //beta
-	    partialW2, //output
-	    2//ldc=2
+	    deltas.weights1, //output (300 by 300)
+	    300//ldc=2
 	    );
-    printf( "output of matrix matrix: \n");
-    for(int i=0; i<36; i++){
-       printf(" [ %5f, %5f ]\n", partialW2[i], partialW2[i+36]);
-    }       
-
 
 }
 
@@ -204,15 +217,15 @@ void softmax_prime(float* input, float* output, int n) {
      * @param input: input vector of length n
      * @param output: output matrix of size n*n
      * @param n: size of input vector
-    */
+     */
     float * interoutput = (float *) malloc(n*sizeof(float));
     softmax(input, interoutput, n);
     for (int i = 0; i < n; i++) {
-        for (int k = 0; k < n; k++) {
-            float delta = 0; 
-            if (i == k) delta = 1;
-            output[k+n*i] = interoutput[i] * (delta - interoutput[k]);
-        }
+	for (int k = 0; k < n; k++) {
+	    float delta = 0; 
+	    if (i == k) delta = 1;
+	    output[k+n*i] = interoutput[i] * (delta - interoutput[k]);
+	}
     }
     free(interoutput);
 }
@@ -227,10 +240,10 @@ void softmax(float *input, float *output, int n) {
      */
     float denom = 0.0;
     for (int i=0; i<n; i++){
-	   denom += exp(input[i]);
+	denom += exp(input[i]);
     }
     for(int i=0; i<n; i++){
-	   output[i] = exp(input[i]) / denom;
+	output[i] = exp(input[i]) / denom;
     }
 }
 
@@ -289,30 +302,14 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
         //bias[x] = float(float(rand()%10)/float(10));
         bias[i] = 0.5;
     }
-    //Hidden_Layer* hiddenlayers = new Hidden_Layer[numlayers-1];
     int weights_offset = 0;
     int bias_offset = 0;
     for (int j = 0; j < numlayers-1; j++) {
         Hidden_Layer temp(weights+weights_offset, bias+bias_offset, layer_sizes[j], layer_sizes[j+1]);
-        //printf("weights: %f ", *(weights+weights_offset));
-        //printf("temp layer: %f \n", temp.layer_weights[0]);
         hiddenlayers[j] = temp;
         weights_offset += layer_sizes[j] * layer_sizes[j+1];
         bias_offset += layer_sizes[j];
     }
-    //printf("\n hiddenlayer[1] weights: \n");
-    for(int i=0; i<72; i++) {
-	//printf("hiddenlayer[1].weights[%d] = %f\n", i, hiddenlayers[1].layer_weights[i]);
-    }
-    //printf("bias\n");
-    //printf("bias[0] = %f\nbias[1] = %f", hiddenlayers[1].bias[0], hiddenlayers[1].bias[1]);
-    //    FILE *pFile = fopen("weights", "wb");
-    //    if (!pFile) {
-	// std::cout<<"error opening file";
-	// exit(0);
-    //    };
-    //    fwrite(weights, sizeof(float), 36*36, pFile);
-    //    fclose(pFile); 
 };
 
 void testsoftmaxprime() {
@@ -355,15 +352,20 @@ int main(int argc, char* argv[]){
     init(3,layer_sizes, hiddenlayers);
     float* output;
     float input[36] = {333.0, 333.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
-    //testsoftmaxprime();
     //cblas_sgemv(CblasRowMajor, CblasNoTrans, 2, 36, 1.0f, input2, 36, input, 1, 1.0f, output, 1);
-//    forward_prop(input, 36, hiddenlayers, 3);
     output = hiddenlayers[1].output;
-    //printf("%f  %f \n", output[0], output[1]);
+    //forward_prop(input, 36, hiddenlayers, 3);
 
-    //void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual) {
     float realoutput[2] = { 1, 0 };
-    backprop(input, 36, hiddenlayers, 3, realoutput);
+
+    delta deltas;
+    deltas.bias1 = (float*) malloc(layer_sizes[0]*sizeof(float));
+    deltas.bias2 = (float*) malloc(layer_sizes[1]*sizeof(float));
+    deltas.weights1 = (float*) malloc(layer_sizes[0]*layer_sizes[1]*sizeof(float));
+    deltas.weights2 = (float*) malloc(layer_sizes[1]*layer_sizes[2]*sizeof(float));
+    deltas.input_error = (float*) malloc(layer_sizes[0]*sizeof(float));
+    
+    backprop(input, 36, hiddenlayers, 3, realoutput, deltas);
 
 
 
