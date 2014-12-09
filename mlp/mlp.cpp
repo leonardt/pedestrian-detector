@@ -37,7 +37,7 @@ class Hidden_Layer {
     int n_in, n_out;
     Hidden_Layer(){};
     Hidden_Layer(float *, float *, int, int);
-    void compute_output(float* input, int last_layer);
+    void compute_output(float* input);
     void update_weights(float* deltas, float learnrate);
     void update_bias(float* deltas, float learnrate);
 };
@@ -47,24 +47,36 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
     n_in = in;
     n_out = out;
     output = (float *) malloc(n_out*sizeof(float));
+    if (!output) {
+	exit(1);
+    }
     v = (float *) malloc(n_out*sizeof(float)); 
 }
-void Hidden_Layer::compute_output(float* input, int last_layer) {
+void Hidden_Layer::compute_output(float* input) {
     printf("nout:%d, nin:%d \n", n_out, n_in);
-    cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
-    cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
-    if (!last_layer) {
-    	for (int i = 0; i < n_out; i++) {
-    	    v[i] = output[i];
-    	    output[i] = tanh(output[i]);
-        }
-    } else {
-    	for (int i = 0; i < n_out; i++) {
-    	    v[i] = output[i];
-        }
-	    softmax(output, output, n_out);
+    printf("OUTPUT BEFORE SGEMV = ["); for(int i=0; i<n_out; i++){ printf("%f, ", output[i]); } printf( " ]\n");
+
+    printf("input: \n[ "); for(int i=0; i<36; i++){ printf("%3f, ", input[i]); } printf("]\n");
+    float* output2 = (float*) malloc(36*sizeof(float)); if(!output2){exit(1);}
+    output[3] = 333.33;
+    cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output2, 1); //computes Wx
+    memcpy(output, output2, 36*sizeof(float));
+    free(output2);
+    printf("OUTPUT AFTER  SGEMV = [");
+    for(int i=0; i<n_out; i++){
+	printf("%f, ", output[i]);
     }
-    printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
+    printf( " ]\n");
+
+    cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
+
+
+    for (int i = 0; i < n_out; i++) {
+    	v[i] = output[i];
+        output[i] = tanh(output[i]);
+    }
+
+
 }   
 void Hidden_Layer::update_weights(float* deltas, float learnrate) {
     for (int i = 0; i < n_out*n_in; i++) {
@@ -91,6 +103,7 @@ int read_weights(float* weights, int n) {
     weightsfile = fopen("weights", "rb");
     if (weightsfile == NULL) return 0;
     fread(weights, sizeof(float), n, weightsfile);
+    printf("WEIGHTSFILE EXIST\n\n\n\n\n");
     return 1;
 }
 
@@ -106,13 +119,23 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
     if ( !input_tanh ) {
 	exit(1);
     }
-    memcpy(input_tanh, input, input_size*sizeof(float));
-    hiddenlayers[0].compute_output(input_tanh, 0);
-    for (int i = 1; i < numlayers-2; i++) {
-	hiddenlayers[i].compute_output(hiddenlayers[i-1].output, 0);
+    printf("before memcpy: \n[");
+    for(int i=0; i<input_size; i++){
+//	printf("%5f ,", input[i]);
     }
-    hiddenlayers[numlayers-2].compute_output(hiddenlayers[numlayers-3].output, 1);
-    free(input_tanh);
+    printf(" ]\n");
+    memcpy(input_tanh, input, input_size*sizeof(float));
+
+    printf("after memcpy: \n[");
+    for(int i=0; i<input_size; i++){
+//	printf("%5f ,", input_tanh[i]);
+    }
+    printf(" ]\n");
+    hiddenlayers[0].compute_output(input_tanh);
+    for (int i = 1; i < numlayers-1; i++) {
+	   hiddenlayers[i].compute_output(hiddenlayers[i-1].output);
+    }
+    //free(input_tanh);
 };
 
 struct delta{
@@ -124,7 +147,8 @@ struct delta{
 };
 
 void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual, delta& deltas) {
-    float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual);
+    //float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual); // calls forward_prop
+    forward_prop(input, input_size, hiddenlayers, numlayers);
     int layer_sizes[numlayers]; // [300,300, 2]
     layer_sizes[0] = hiddenlayers[0].n_in;
     for(int i=0; i<numlayers-1; i++){
@@ -135,6 +159,7 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
     //final error is (a_L - y) (*) tanh'(Wx+b), where (*) is the Hadamard (element wise product)
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
 	   deltas.bias2[i] = hiddenlayers[numlayers-2].output[i];
+	   printf( "deltas.bias2[%d] = %f\n", i, deltas.bias2[i]);
     }
     int output_size = hiddenlayers[numlayers-2].n_out; //300
     // float activation_partial[output_size];
@@ -213,10 +238,10 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
 	    tanh_input, //matrix A, the activation of layer 1 (size 300 by 1).  i.e. tanh(input)
 	    1, //lda = 1 (don't ask me why)
 	    deltas.bias1, //(size 300 by 1)
-	    300, //ldb=2
+	    hiddenlayers[0].n_out, //
 	    1.0f, //beta
 	    deltas.weights1, //output (300 by 300)
-	    300//ldc=2
+	    hiddenlayers[0].n_out//
 	    );
 
 }
@@ -239,7 +264,7 @@ void softmax_prime(float* input, float* output, int n) {
 	    output[k+n*i] = interoutput[i] * (delta - interoutput[k]);
 	}
     }
-    free(interoutput);
+    //free(interoutput);
 }
 void softmax(float *input, float *output, int n) {
     /*
@@ -309,12 +334,12 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
     if (!read_weights(weights, weights_size)) {
         srand (time(NULL));
         for (int i=0; i<weights_size; i++){
-    	weights[i] = float(float(rand()%10)/float(10));
-        //    weights[i] = 0.5;
+	   //weights[i] = float(float(rand()%10)/float(10));
+            weights[i] = 0.5;
         }
         for (int i = 0; i < bias_size; i++) {
-            bias[i] = float(float(rand()%10)/float(10));
-            //bias[i] = 0.5;
+            //bias[i] = float(float(rand()%10)/float(10));
+            bias[i] = 0.5;
         }
     }
     int weights_offset = 0;
@@ -361,6 +386,7 @@ void testCost(Hidden_Layer* hiddenlayers) {
 
 
 int main(int argc, char* argv[]){
+    
     //testLoss();
     Hidden_Layer* hiddenlayers = new Hidden_Layer[2];
     int layer_sizes[3] = {36, 36, 2};
@@ -385,11 +411,43 @@ int main(int argc, char* argv[]){
     deltas.input_error = (float*) malloc(layer_sizes[0]*sizeof(float));
     
     backprop(input2, 36, hiddenlayers, 3, realoutput, deltas);
+//void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers) {
+//    forward_prop(input2, 36, hiddenlayers, 3);
 
     printf("deltas: \n");
     for(int i=0; i<36; i++) {
 	printf(" input offset %3d = %5f  |  bias1 offset = %5f  |  bias2 offset = %5f\n", i, deltas.input_error[i], deltas.bias1[i],deltas.bias2[i]);
     }
 
+
+
+
+
+
+/*
+
+    float input[36] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
+    float* output = (float *) malloc(36*sizeof(float));
+    if (!output){exit(1);}
+    int weights_size = 36*36+36*2;
+    float* weights = (float*) malloc(weights_size*sizeof(float));
+    if(!weights){exit(1);}
+    if (!read_weights(weights, weights_size)) {
+        srand (time(NULL));
+        for (int i=0; i<weights_size; i++){
+            weights[i] = 0.5;
+        }
+    }
+    float* input3 = (float *) malloc(36*sizeof(float));
+    if(!input3){exit(1);}
+    for(int i=0; i<36; i++){
+	input3[i] = tanh(input[i]);
+    }
+    printf("INPUT AFTER TANH = ["); for(int i=0; i<36; i++){ printf("%f, ", input3[i]); } printf( " ]\n");
+
+    cblas_sgemv(CblasRowMajor, CblasNoTrans, 36, 36, 1.0f, weights, 36, input3, 1, 1.0f, output, 1); //computes Wx
+
+    printf("OUTPUT AFTER  SGEMV = ["); for(int i=0; i<36; i++){ printf("%f, ", output[i]); } printf( " ]\n");
+*/
 
 };
