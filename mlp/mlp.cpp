@@ -48,7 +48,7 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
     v = (float *) malloc(n_out*sizeof(float)); 
 }
 void Hidden_Layer::compute_output(float* input, int last_layer) {
-    //printf("nout:%d, nin:%d \n", n_out, n_in);
+    printf("nout:%d, nin:%d \n", n_out, n_in);
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
 
     cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
@@ -63,7 +63,7 @@ void Hidden_Layer::compute_output(float* input, int last_layer) {
         }
 	    softmax(output, output, n_out);
     }
-    //printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
+    printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
 }   
 
 
@@ -105,7 +105,6 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
     	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers-i-2].n_out);
     	layer_sizes[i+1] = hiddenlayers[i].n_out;
     }
-    */
     if ( !(deltas.bias1 && deltas.bias2 && deltas.weights1 && deltas.weights2 && deltas.input_error) ) { exit(1); }
 
     //float *errors = (float *) malloc((numlayers)*largest_layer_size*sizeof(float));
@@ -115,16 +114,10 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
 	deltas.bias2[i] = hiddenlayers[numlayers-2].output[i];
     }
     int output_size = hiddenlayers[numlayers-2].n_out; //300
-   // float activation_partial[output_size];
+    // float activation_partial[output_size];
     //softmax_prime(hiddenlayers[numlayers-2].v, activation_partial, output_size); // softmax'(Wx+b)
-    //printf("softmaxprime      input 	output:       layer 1\n");
-   // printf("	0 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[0], activation_partial[0]);  
-   // printf("	1 		%f 	   %f    \n", hiddenlayers[numlayers-2].v[1], activation_partial[1]);  
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
-	   //errors[(numlayers-1)*largest_layer_size+i] -= actual[i]; //a_L - y [-.5, .5]
 	   deltas.bias2[i] -= actual[i]; // a_L - y
-	   ////printf("a_L - y for layer %d index %d = %f \n",numlayers-2, i, errors[numlayers-2][i]); 
-	   //errors[(numlayers-1)*largest_layer_size+i] *= tanh_prime(hiddenlayers[numlayers-2].v[i]); // errors[1] is output layer errors
 	   deltas.bias2[i] *= tanh_prime(hiddenlayers[numlayers-2].v[i]); // errors[1] is output layer errors
     }
     // next compute error for all layers (layer 1-input and 2-hidden). error_l = ((w_l+1)^T * error_l+1) (*) tanh'(Wx+b)
@@ -160,10 +153,6 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
     for(int j = 0; j < hiddenlayers[0].n_in; j++) { // 0 to 300
 	deltas.input_error[j] *= tanh_prime(input[j]);
     }
-
-    printf("softmaxprime      input 	output:        layer 0\n");
-    printf("	0 		%f 	       \n", hiddenlayers[numlayers-3].v[0]);  
-    printf("	1 		%f 	       \n", hiddenlayers[numlayers-3].v[1]);  
 
     // partial derivitive of C wrt to bias is just error.
     // compute partial derivative of C wrt weights. d = a_(l-1) * error_l
@@ -295,12 +284,12 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
     float* bias = (float*) malloc(bias_size*sizeof(float));
     srand (time(NULL));
     for (int i=0; i<weights_size; i++){
-	//weights[i] = float(float(rand()%10)/float(10));
-        weights[i] = 0.5;
+	weights[i] = float(float(rand()%10)/float(10));
+        //weights[i] = 0.5;
     }
     for (int i = 0; i < bias_size; i++) {
-        //bias[x] = float(float(rand()%10)/float(10));
-        bias[i] = 0.5;
+        bias[i] = float(float(rand()%10)/float(10));
+        //bias[i] = 0.5;
     }
     int weights_offset = 0;
     int bias_offset = 0;
@@ -351,7 +340,11 @@ int main(int argc, char* argv[]){
     int layer_sizes[3] = {36, 36, 2};
     init(3,layer_sizes, hiddenlayers);
     float* output;
-    float input[36] = {333.0, 333.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
+    float input[36] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
+    float* input2 = (float*) malloc(36*sizeof(float));
+    for(int i=0; i<36; i++){
+	input2[i] = .01 * (i+1.01);
+    }
     //cblas_sgemv(CblasRowMajor, CblasNoTrans, 2, 36, 1.0f, input2, 36, input, 1, 1.0f, output, 1);
     output = hiddenlayers[1].output;
     //forward_prop(input, 36, hiddenlayers, 3);
@@ -365,8 +358,12 @@ int main(int argc, char* argv[]){
     deltas.weights2 = (float*) malloc(layer_sizes[1]*layer_sizes[2]*sizeof(float));
     deltas.input_error = (float*) malloc(layer_sizes[0]*sizeof(float));
     
-    backprop(input, 36, hiddenlayers, 3, realoutput, deltas);
+    backprop(input2, 36, hiddenlayers, 3, realoutput, deltas);
 
+    printf("deltas: \n");
+    for(int i=0; i<36; i++) {
+	printf(" input offset %3d = %5f  |  bias1 offset = %5f  |  bias2 offset = %5f\n", i, deltas.input_error[i], deltas.bias1[i],deltas.bias2[i]);
+    }
 
 
 };
