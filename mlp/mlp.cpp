@@ -125,20 +125,16 @@ struct delta{
 
 void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual, delta& deltas) {
     float cost1 = cost(input, input_size, hiddenlayers, numlayers, actual);
-    int largest_layer_size = hiddenlayers[0].n_in; //300
     int layer_sizes[numlayers]; // [300,300, 2]
     layer_sizes[0] = hiddenlayers[0].n_in;
     for(int i=0; i<numlayers-1; i++){
-    	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers-i-2].n_out);
     	layer_sizes[i+1] = hiddenlayers[i].n_out;
     }
     if ( !(deltas.bias1 && deltas.bias2 && deltas.weights1 && deltas.weights2 && deltas.input_error) ) { exit(1); }
 
-    //float *errors = (float *) malloc((numlayers)*largest_layer_size*sizeof(float));
     //final error is (a_L - y) (*) tanh'(Wx+b), where (*) is the Hadamard (element wise product)
     for(int i=0; i<hiddenlayers[numlayers-2].n_out; i++) {
-	//errors[(numlayers-1)*largest_layer_size+i] = hiddenlayers[numlayers-2].output[i];
-	deltas.bias2[i] = hiddenlayers[numlayers-2].output[i];
+	   deltas.bias2[i] = hiddenlayers[numlayers-2].output[i];
     }
     int output_size = hiddenlayers[numlayers-2].n_out; //300
     // float activation_partial[output_size];
