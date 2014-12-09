@@ -143,3 +143,29 @@ void ocl_softmax(GpuBatch input, cl_vars_t cv, cl_kernel kern, cl_uint device) {
   );
   CHK_ERR(err);
 }
+
+void ocl_tanh(GpuBatch input, GpuBatch v, cl_vars_t cv, cl_kernel kern, cl_uint device) {
+  cl_int err = CL_SUCCESS;
+  size_t global_work_size[2] = {static_cast<size_t>(input.batch_size * input.rows * input.cols * input.depth)};
+  size_t local_work_size[2] = {512};
+
+  /* Set kernel arguments */
+
+  err = clSetKernelArg(kern, 0, sizeof(cl_mem), &input.buf);
+  CHK_ERR(err);
+
+  err = clSetKernelArg(kern, 1, sizeof(cl_mem), &v.buf);
+  CHK_ERR(err);
+
+  err = clEnqueueNDRangeKernel(cv.commands[device],
+          kern,
+          1,
+          NULL,
+          global_work_size,
+          local_work_size,
+          0,
+          NULL,
+          NULL
+  );
+  CHK_ERR(err);
+}

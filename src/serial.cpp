@@ -37,8 +37,9 @@ void max_pool(Batch input, Batch output, int s) {
     for (int i = 0; i < output.rows; i++) {
       for (int j = 0; j < output.cols; j++) {
         for (int d = 0; d < input.depth; d++) {
-          float elt = std::numeric_limits<float>::min();
-          for (int ii = i * s; ii < (i + 1) * s; ii++) {
+          float elt = input.data[z * input.depth * input.rows * input.cols + 
+                d * input.rows * input.cols + i * s * input.cols];
+          for (int ii = i * s + 1; ii < (i + 1) * s; ii++) {
             for (int jj = j * s; jj < (j + 1) * s; jj++) {
               float curr = input.data[z * input.depth * input.rows * input.cols + 
                 d * input.rows * input.cols + ii * input.cols + jj];
