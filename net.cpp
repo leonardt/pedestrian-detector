@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
       for (int z = 0; z < batch_size; z++) {
         sequence >> int_image;
         int_image.convertTo(image, CV_32F);
-        memcpy(&images.data[z], (float*)image.data, image.total() * image.elemSize());
+        memcpy(&images.data[z * image.rows * image.cols], (float*)image.data, image.total() * image.elemSize());
       }
 
       if (!image.data) {
@@ -83,11 +83,11 @@ int main(int argc, char **argv) {
     vector<Weights> l2_weights;
     vector<float> l2_bias;
     for (int i = 0; i < l1_numoutputs; i++) {
-      l1_weights.push_back(Weights(w, 1, 1));
+      l1_weights.push_back(Weights(w, 1, 1 + l1_numoutputs));
       l1_bias.push_back(0);
     }
     for (int i = 0; i < l2_numoutputs; i++) {
-      l2_weights.push_back(Weights(w, l1_numoutputs, l1_numoutputs));
+      l2_weights.push_back(Weights(w, l1_numoutputs, l2_numoutputs + l1_numoutputs));
       l2_bias.push_back(0);
     }
 
@@ -144,6 +144,7 @@ int main(int argc, char **argv) {
       GpuBatch batch = gpu_batches[device];
       GpuBatch ocl_out_buf = gpu_l1_outputs[device];
       ocl_conv(batch, ocl_out_buf, l1_gpu_weights[device], l1_bias, w, cv, conv, device);
+      err = clFinish(cv.commands[device]);
       ocl_conv(ocl_out_buf, gpu_l2_outputs[device], l2_gpu_weights[device], l2_bias, w, cv, conv, device);
     }
     for (cl_uint device = 0; device < cv.num_devices; device++) {
@@ -246,7 +247,7 @@ int main(int argc, char **argv) {
       clFinish(cv.commands[device]);
     }
     for (cl_uint device = 0; device < 1; device++) {
-      GpuBatch out_buf = gpu_l1_outputs[device];
+      GpuBatch out_buf = hl2_out[device];
       float* out = new float[batch_size * out_buf.rows * out_buf.cols * out_buf.depth];
       err = clEnqueueReadBuffer(cv.commands[device], out_buf.buf, true, 0,
                                 batch_size * out_buf.rows * out_buf.cols *

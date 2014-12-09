@@ -1,5 +1,6 @@
 #include "clhelp.h"
 #include <opencv2/core/core.hpp>
+#include "math.h"
 
 using namespace cv;
 
@@ -51,11 +52,12 @@ class Weights {
     cols = (radius * 2 + 1);
     data = new float[depth * rows * cols]();
     if (range > 0) {
+      range = sqrt(6.0f / range);
       for (int z = 0; z < depth; z++) {
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
                 data[z * rows * cols + i * cols + j] = (
-                    (float) rand() / (float) RAND_MAX) * ( (1 / range) * 2 + 1) - (1 / range);
+                    (float) rand() / (float) RAND_MAX) * (range * 2) - range;
             }
         }
       }
