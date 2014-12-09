@@ -1,4 +1,4 @@
 all:
-	g++ mlp.cpp -o mlp -llapack -lblas
+	g++ mlp.cpp -o mlp -O2 -llapack -lblas
 clean:
 	rm mlp
