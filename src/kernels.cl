@@ -1,5 +1,5 @@
 __kernel void conv(__global float *output, __global const float *input, __constant float *weights, 
-	           int rows, int cols, int depth, int num_sets, int n, __local float* buf) {
+	           float bias, int rows, int cols, int depth, int num_sets, int n, __local float* buf) {
   int i = get_global_id(0);
   int j = get_global_id(1);
   int z = get_global_id(2);
@@ -45,59 +45,11 @@ __kernel void conv(__global float *output, __global const float *input, __consta
         elt = max(elt, buf_tmp[jj]);
       }
     }
-    output_tmp[n * output_rows * output_cols + i * output_cols + j] = elt;
+    output_tmp[n * output_rows * output_cols + i * output_cols + j] = tanh(elt + bias);
   }
 }
 
-void __kernel hidden_layer(__global float* output, __global float* v, __global const float* input, 
-                           __constant float* weights, __constant float* bias,
-                           int last_layer, int size, __local float* buf) {
-  int x = get_global_id(0);
-  int y = get_global_id(1);
-  float sum = 0.0f;
-  for (int i = y; i < size; i+= get_global_size(1)) {
-    sum += input[x * size + i] * weights[i];
-  }
-  buf[y] = sum;
-  barrier(CLK_LOCAL_MEM_FENCE);
-  if (y == 0) {
-    float out = bias[x];
-    for (size_t i = 0; i < get_global_size(1); i++) {
-      out += buf[i];
-    }
-    v[x] = out;
-    if (last_layer) {
-      output[x] = tanh(out);
-    } else {
-      output[x] = out;
-    }
-  }
-}
-
-void __kernel soft_max(__global float* in, __local float* buf) {
-  size_t tid = get_local_id(0);
-  size_t gid = get_group_id(0);
-  size_t dim = get_local_size(0);
-  size_t idx = get_global_id(0);
-  buf[tid] = in[idx];
-  barrier(CLK_LOCAL_MEM_FENCE);
-  // Perform the reduction tree
-  for (unsigned int s=dim/2; s > 0; s >>= 1) {
-    // Reduce if thread is active for this level
-    if (tid < s) {
-      buf[tid] += exp(buf[tid + s]);
-    }
-    barrier(CLK_LOCAL_MEM_FENCE);
-  }
-  // Last thread writes the output
-  in[idx] = exp(in[idx]) / buf[0];
-}
-
-void __kernel ocl_tanh(__global float* a, __global float* v) {
+void __kernel ocl_tan_h(__global float* a, __global float* v) {
   int i = get_global_id(0);
-  if (v[i] > 0.0) {
-    printf("v %0.3f\n", v[i]);
-    printf("a %0.3f\n", tanh(v[i]));
-  }
   a[i] = tanh(v[i]);
 }

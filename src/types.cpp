@@ -49,13 +49,15 @@ class Weights {
   Weights(int radius, int depth, float range): depth(depth) {
     rows = (radius * 2 + 1);
     cols = (radius * 2 + 1);
-    data = new float[depth * rows * cols];
-    for (int z = 0; z < depth; z++) {
-      for (int i = 0; i < rows; i++) {
-          for (int j = 0; j < cols; j++) {
-              data[z * rows * cols + i * cols + j] = (
-                  (float) rand() / (float) RAND_MAX) * (range * 2 + 1) - range;
-          }
+    data = new float[depth * rows * cols]();
+    if (range > 0) {
+      for (int z = 0; z < depth; z++) {
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                data[z * rows * cols + i * cols + j] = (
+                    (float) rand() / (float) RAND_MAX) * ( (1 / range) * 2 + 1) - (1 / range);
+            }
+        }
       }
     }
   }

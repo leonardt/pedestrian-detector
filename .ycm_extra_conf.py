@@ -60,6 +60,8 @@ flags = [
 '-isystem',
 '/usr/include',
 '-isystem',
+'./clBLAS/build/package/include',
+'-isystem',
 '/usr/local/include',
 '-isystem',
 '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../include/c++/v1',

@@ -47,9 +47,7 @@ int main(int argc, char **argv) {
     initialize_ocl(cv);
 
     cl_kernel conv = build_kernel(string("conv"), string("./src/kernels.cl"), cv);
-    cl_kernel hidden_layer_kern = build_kernel(string("hidden_layer"), string("./src/kernels.cl"), cv);
-    cl_kernel softmax_kern = build_kernel(string("soft_max"), string("./src/kernels.cl"), cv);
-    cl_kernel tanh_kern = build_kernel(string("ocl_tanh"), string("./src/kernels.cl"), cv);
+    cl_kernel tanh_kern = build_kernel(string("ocl_tan_h"), string("./src/kernels.cl"), cv);
 
     cl_int err = CL_SUCCESS;
     Mat image, int_image;
@@ -81,12 +79,16 @@ int main(int argc, char **argv) {
     int w = 2;
     int l2_numoutputs = 52;
     vector<Weights> l1_weights;
+    vector<float> l1_bias;
     vector<Weights> l2_weights;
+    vector<float> l2_bias;
     for (int i = 0; i < l1_numoutputs; i++) {
       l1_weights.push_back(Weights(w, 1, 1));
+      l1_bias.push_back(0);
     }
     for (int i = 0; i < l2_numoutputs; i++) {
       l2_weights.push_back(Weights(w, l1_numoutputs, l1_numoutputs));
+      l2_bias.push_back(0);
     }
 
     vector<vector<GpuWeights> > l1_gpu_weights;
@@ -117,8 +119,8 @@ int main(int argc, char **argv) {
     double cpu_total = timestamp();
     for (cl_uint device = 0; device < cv.num_devices; device++) {
       Batch batch = batches[device];
-      layer1_compute(batch, cpu_l1_outputs[device], l1_weights, w, 2);
-      layer1_compute(cpu_l1_outputs[device], cpu_l2_outputs[device], l2_weights, 2, 2);
+      layer1_compute(batch, cpu_l1_outputs[device], l1_weights, w, 2, l1_bias);
+      layer1_compute(cpu_l1_outputs[device], cpu_l2_outputs[device], l2_weights, 2, 2, l2_bias);
     }
     cpu_total = timestamp() - cpu_total;
     vector<GpuBatch> gpu_l1_outputs;
@@ -141,8 +143,8 @@ int main(int argc, char **argv) {
     for (cl_uint device = 0; device < cv.num_devices; device++) {
       GpuBatch batch = gpu_batches[device];
       GpuBatch ocl_out_buf = gpu_l1_outputs[device];
-      ocl_conv(batch, ocl_out_buf, l1_gpu_weights[device], w, cv, conv, device);
-      ocl_conv(ocl_out_buf, gpu_l2_outputs[device], l2_gpu_weights[device], w, cv, conv, device);
+      ocl_conv(batch, ocl_out_buf, l1_gpu_weights[device], l1_bias, w, cv, conv, device);
+      ocl_conv(ocl_out_buf, gpu_l2_outputs[device], l2_gpu_weights[device], l2_bias, w, cv, conv, device);
     }
     for (cl_uint device = 0; device < cv.num_devices; device++) {
       err = clFinish(cv.commands[device]);
@@ -180,12 +182,12 @@ int main(int argc, char **argv) {
     // hidden layer
     vector<GpuBatch> hl1_out;
     vector<GpuBatch> hl1_v;
-    for (cl_uint device = 0; device < cv.num_devices; device++) {
+    for (cl_uint device = 0; device < 1; device++) {
       GpuBatch batch = gpu_l2_outputs[device];
       Weights hidden_layer_weights(0, batch.rows * batch.cols * batch.depth * 
-          batch.rows * batch.cols * batch.depth, 1);
+          batch.rows * batch.cols * batch.depth, batch.rows * batch.cols * batch.depth);
       GpuWeights weights(hidden_layer_weights, cv, device);
-      Weights bias(0, batch.rows * batch.cols * batch.depth, 1);
+      Weights bias(0, batch.rows * batch.cols * batch.depth, 0);
       GpuWeights bias_buf(bias, cv, device);
       Batch out = Batch(batch.batch_size, batch.rows, batch.cols, batch.depth);
       GpuBatch out_buf = GpuBatch(out, cv, device);
@@ -208,18 +210,18 @@ int main(int argc, char **argv) {
                           v_buf.buf,
                           offset * batch.rows * batch.cols * batch.depth, 1,
                           1, &cv.commands[device], 0, NULL, NULL);
+        CHK_ERR(err);
       }
       ocl_tanh(out_buf, v_buf, cv, tanh_kern, device);
       hl1_out.push_back(out_buf);
       hl1_v.push_back(v_buf);
-      clFinish(cv.commands[device]);
     }
     vector<GpuBatch> hl2_out;
     vector<GpuBatch> hl2_v;
-    for (cl_uint device = 0; device < cv.num_devices; device++) {
+    for (cl_uint device = 0; device < 1; device++) {
       GpuBatch batch = hl1_out[device];
       Weights hidden_layer_weights(0, batch.rows * batch.cols * batch.depth * 2,
-          1);
+          batch.rows * batch.cols * batch.depth);
       GpuWeights weights(hidden_layer_weights, cv, device);
       Batch out = Batch(batch.batch_size, 1, 1, 2);
       GpuBatch out_buf = GpuBatch(out, cv, device);
@@ -236,13 +238,29 @@ int main(int argc, char **argv) {
                           1.0f, v_buf.buf, 
                           offset * 2, 1, 1,
                           &cv.commands[device], 0, NULL, NULL);
-        cout << err << endl;
         CHK_ERR(err);
       }
       ocl_tanh(out_buf, v_buf, cv, tanh_kern, device);
       hl2_out.push_back(out_buf);
       hl2_v.push_back(v_buf);
       clFinish(cv.commands[device]);
+    }
+    for (cl_uint device = 0; device < 1; device++) {
+      GpuBatch out_buf = gpu_l1_outputs[device];
+      float* out = new float[batch_size * out_buf.rows * out_buf.cols * out_buf.depth];
+      err = clEnqueueReadBuffer(cv.commands[device], out_buf.buf, true, 0,
+                                batch_size * out_buf.rows * out_buf.cols *
+                                out_buf.depth * sizeof(float),
+                                out, 0, NULL, NULL);
+      CHK_ERR(err);
+      err = clFinish(cv.commands[device]);
+      CHK_ERR(err);
+      for (int i = 0; i < out_buf.rows; i++) {
+        for (int j = 0; j < out_buf.cols; j++ ) {
+          cout << out[i * out_buf.cols + j] << " ";
+        }
+        cout << endl;
+      }
     }
 
     cout << "PASSED" << endl;

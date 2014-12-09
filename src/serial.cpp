@@ -1,8 +1,10 @@
 #include <omp.h>
+#include <math.h>
+
 using namespace cv;
 
 
-void convolve(Batch input, Batch output, vector<Weights> weights_sets, int r) {
+void convolve(Batch input, Batch output, vector<Weights> weights_sets, int r, vector<float> bias) {
   #pragma omp parallel for
   for (int z = 0; z < input.batch_size; z++) {
     for (int i = r; i < input.rows - r; i++) {
@@ -24,7 +26,7 @@ void convolve(Batch input, Batch output, vector<Weights> weights_sets, int r) {
           }
           output.data[z * output.depth * output.rows * output.cols +
                       n * output.rows * output.cols +
-                      (i - r) * output.cols + (j - r)] = sum;
+                      (i - r) * output.cols + (j - r)] = tanh(sum + bias[n]);
         }
       }
     }
@@ -57,8 +59,8 @@ void max_pool(Batch input, Batch output, int s) {
   }
 }
 
-void layer1_compute(Batch input, Batch output, vector<Weights> weights, int r, int s) {
+void layer1_compute(Batch input, Batch output, vector<Weights> weights, int r, int s, vector<float> bias) {
     Batch conv_out(input.batch_size, weights.size(), input.rows - 2 * r, input.cols - 2 * r);
-    convolve(input, conv_out, weights, r);
+    convolve(input, conv_out, weights, r, bias);
     max_pool(conv_out, output, s);
 }
