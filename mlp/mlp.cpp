@@ -107,7 +107,7 @@ void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int 
 	exit(1);
     }
     memcpy(input_tanh, input, input_size*sizeof(float));
-    hiddenlayers[0].compute_output(input, 0);
+    hiddenlayers[0].compute_output(input_tanh, 0);
     for (int i = 1; i < numlayers-2; i++) {
 	hiddenlayers[i].compute_output(hiddenlayers[i-1].output, 0);
     }
@@ -369,7 +369,7 @@ int main(int argc, char* argv[]){
     float input[36] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
     float* input2 = (float*) malloc(36*sizeof(float));
     for(int i=0; i<36; i++){
-	   input2[i] = 0.02;
+	   input2[i] = 1 /  (i+1);
     }
     //cblas_sgemv(CblasRowMajor, CblasNoTrans, 2, 36, 1.0f, input2, 36, input, 1, 1.0f, output, 1);
     output = hiddenlayers[1].output;
