@@ -24,7 +24,8 @@ float cost(float* x, int input_size, Hidden_Layer* hiddenlayers, int numlayers, 
 struct delta;
 void backprop(int input, int input_size, Hidden_Layer* hiddenlayers, int numlayers, float* actual, delta& deltas);
 float tanh_prime(float input);
-
+int store_weights(float* weights, int n);
+int read_weights(float* weights, int n);
 class Hidden_Layer {
     /* class definition that represents a hidden layer. On construction computes the hidden layer
      *  represented by the layer weights, bias vector, induced local field vector (Wx+b) and output.   
@@ -37,7 +38,8 @@ class Hidden_Layer {
     Hidden_Layer(){};
     Hidden_Layer(float *, float *, int, int);
     void compute_output(float* input, int last_layer);
-
+    void update_weights(float* deltas, float learnrate);
+    void update_bias(float* deltas, float learnrate);
 };
 Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
     layer_weights = weights;
@@ -50,7 +52,6 @@ Hidden_Layer::Hidden_Layer(float* weights, float* b, int in, int out) {
 void Hidden_Layer::compute_output(float* input, int last_layer) {
     //printf("nout:%d, nin:%d \n", n_out, n_in);
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n_out, n_in, 1.0f, layer_weights, n_in, input, 1, 1.0f, output, 1); //computes Wx
-
     cblas_saxpy(n_out, 1.0, bias, 1, output, 1);
     if (!last_layer) {
     	for (int i = 0; i < n_out; i++) {
@@ -65,7 +66,33 @@ void Hidden_Layer::compute_output(float* input, int last_layer) {
     }
     //printf("OUTPUT = [%f, %f]\n", output[0], output[1]);
 }   
+void Hidden_Layer::update_weights(float* deltas, float learnrate) {
+    for (int i = 0; i < n_out*n_in; i++) {
+        layer_weights[i] -= learnrate*deltas[i];
+    }
+}
 
+void Hidden_Layer::update_bias(float* deltas, float learnrate) {
+    for (int i = 0; i < n_out; i++) {
+        bias[i] -= learnrate*deltas[i];
+    }
+}
+
+int store_weights(float* weights, int n) {
+    FILE *weightsfile;
+    weightsfile = fopen("weights", "wb");
+    if (weightsfile == NULL) return 0;
+    fwrite(weights, sizeof(float), n, weightsfile);
+    return 1; 
+}
+
+int read_weights(float* weights, int n) {
+    FILE *weightsfile;
+    weightsfile = fopen("weights", "rb");
+    if (weightsfile == NULL) return 0;
+    fread(weights, sizeof(float), n, weightsfile);
+    return 1;
+}
 
 void forward_prop(float *input, int input_size, Hidden_Layer* hiddenlayers, int numlayers) {
     /* @param input: array of length 36 representing 6 6x1 vectors
@@ -105,7 +132,6 @@ void backprop(float* input, int input_size, Hidden_Layer* hiddenlayers, int numl
     	largest_layer_size = max(largest_layer_size, hiddenlayers[numlayers-i-2].n_out);
     	layer_sizes[i+1] = hiddenlayers[i].n_out;
     }
-    */
     if ( !(deltas.bias1 && deltas.bias2 && deltas.weights1 && deltas.weights2 && deltas.input_error) ) { exit(1); }
 
     //float *errors = (float *) malloc((numlayers)*largest_layer_size*sizeof(float));
@@ -284,6 +310,7 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
      * @param layer_sizes is an int array of size numlayers that stores the sizes of each layer. 
      * weights are initialized randomly or read in from an existing file. 
      */
+
     int weights_size = 0;
     int bias_size = 0;
     for (int k = 0; k < numlayers-1; k++) {
@@ -293,14 +320,16 @@ void init(int numlayers, int* layer_sizes, Hidden_Layer* hiddenlayers) {
     bias_size -= layer_sizes[numlayers-1];
     float* weights = (float*) malloc(weights_size*sizeof(float));
     float* bias = (float*) malloc(bias_size*sizeof(float));
-    srand (time(NULL));
-    for (int i=0; i<weights_size; i++){
-	//weights[i] = float(float(rand()%10)/float(10));
-        weights[i] = 0.5;
-    }
-    for (int i = 0; i < bias_size; i++) {
-        //bias[x] = float(float(rand()%10)/float(10));
-        bias[i] = 0.5;
+    if (!read_weights(weights, weights_size)) {
+        srand (time(NULL));
+        for (int i=0; i<weights_size; i++){
+    	//weights[i] = float(float(rand()%10)/float(10));
+            weights[i] = 0.5;
+        }
+        for (int i = 0; i < bias_size; i++) {
+            //bias[x] = float(float(rand()%10)/float(10));
+            bias[i] = 0.5;
+        }
     }
     int weights_offset = 0;
     int bias_offset = 0;
