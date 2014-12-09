@@ -1,7 +1,8 @@
 #include <omp.h>
 #include <math.h>
+#include "types.h"
 
-using namespace cv;
+using namespace std;
 
 
 void convolve(Batch input, Batch output, vector<Weights> weights_sets, int r, vector<float> bias) {
@@ -40,7 +41,7 @@ void max_pool(Batch input, Batch output, int s) {
       for (int j = 0; j < output.cols; j++) {
         for (int d = 0; d < input.depth; d++) {
           float elt = input.data[z * input.depth * input.rows * input.cols + 
-                d * input.rows * input.cols + i * s * input.cols];
+                d * input.rows * input.cols + i * s * input.cols + j * s];
           for (int ii = i * s + 1; ii < (i + 1) * s; ii++) {
             for (int jj = j * s; jj < (j + 1) * s; jj++) {
               float curr = input.data[z * input.depth * input.rows * input.cols + 
@@ -59,7 +60,8 @@ void max_pool(Batch input, Batch output, int s) {
   }
 }
 
-void layer1_compute(Batch input, Batch output, vector<Weights> weights, int r, int s, vector<float> bias) {
+void layer1_compute(Batch input, Batch output, std::vector<Weights> weights, 
+                    int r, int s, vector<float> bias) {
     Batch conv_out(input.batch_size, weights.size(), input.rows - 2 * r, input.cols - 2 * r);
     convolve(input, conv_out, weights, r, bias);
     max_pool(conv_out, output, s);

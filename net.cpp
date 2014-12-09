@@ -3,9 +3,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
 #include <random>
-#include "src/conv.cpp"
-#include "src/serial.cpp"
-#include <cstdlib>
+#include "src/layer.cpp"
+#include "src/types.h"
 #include <cstdlib>
 #include <clBLAS.h>
 
@@ -78,103 +77,51 @@ int main(int argc, char **argv) {
     int l1_numoutputs = 20;
     int w = 2;
     int l2_numoutputs = 52;
-    vector<Weights> l1_weights;
-    vector<float> l1_bias;
-    vector<Weights> l2_weights;
-    vector<float> l2_bias;
-    for (int i = 0; i < l1_numoutputs; i++) {
-      l1_weights.push_back(Weights(w, 1, 1 + l1_numoutputs));
-      l1_bias.push_back(0);
-    }
-    for (int i = 0; i < l2_numoutputs; i++) {
-      l2_weights.push_back(Weights(w, l1_numoutputs, l2_numoutputs + l1_numoutputs));
-      l2_bias.push_back(0);
-    }
+    ConvPoolLayer cpu_l1(batch_size, image.rows, image.cols, 1, w, 
+        l1_numoutputs);
+    ConvPoolLayer cpu_l2(batch_size, (image.rows - 2 * w) / 2, 
+                         (image.cols - 2 * w) / 2, l1_numoutputs, w, 
+                         l2_numoutputs);
 
-    vector<vector<GpuWeights> > l1_gpu_weights;
-    vector<vector<GpuWeights> > l2_gpu_weights;
-    for (cl_uint device = 0; device < cv.num_devices; device++) {
-      vector<GpuWeights> l1_weights_set;
-      for (int i = 0; i < l1_numoutputs; i++) {
-        l1_weights_set.push_back(GpuWeights(l1_weights[i], cv, device));
-      }
-      vector<GpuWeights> l2_weights_set;
-      for (int i = 0; i < l2_numoutputs; i++) {
-        l2_weights_set.push_back(GpuWeights(l2_weights[i], cv, device));
-      }
-      l1_gpu_weights.push_back(l1_weights_set);
-      l2_gpu_weights.push_back(l2_weights_set);
-    }
+    GpuConvPoolLayer gpu_l1(cpu_l1, cv, conv);
+    GpuConvPoolLayer gpu_l2(cpu_l2, cv, conv);
 
-    vector<Batch> cpu_l1_outputs;
-    vector<Batch> cpu_l2_outputs;
-    for (cl_uint device = 0; device < cv.num_devices; device++) {
-      Batch l1_output(batch_size, l1_numoutputs, (image.rows - 2 * w) / 2, 
-               (image.cols - 2 * w) / 2);
-      cpu_l1_outputs.push_back(l1_output);
-      Batch l2_out(batch_size, l2_numoutputs, (l1_output.rows - 2 * 2) / 2, 
-          (l1_output.cols - 2 * 2) / 2);
-      cpu_l2_outputs.push_back(l2_out);
-    }
     double cpu_total = timestamp();
-    for (cl_uint device = 0; device < cv.num_devices; device++) {
-      Batch batch = batches[device];
-      layer1_compute(batch, cpu_l1_outputs[device], l1_weights, w, 2, l1_bias);
-      layer1_compute(cpu_l1_outputs[device], cpu_l2_outputs[device], l2_weights, 2, 2, l2_bias);
-    }
+    Batch batch = batches[0];
+    cpu_l1.forward(&batch);
+    cpu_l2.forward(cpu_l1.output);
     cpu_total = timestamp() - cpu_total;
-    vector<GpuBatch> gpu_l1_outputs;
-    vector<GpuBatch> gpu_l2_outputs;
-    vector<Batch> gpu_l1_outputs_host;
-    vector<Batch> gpu_l2_outputs_host;
-    for (cl_uint device = 0; device < cv.num_devices; device++) {
-      Batch ocl_out = Batch(batch_size, l1_numoutputs,
-          (image.rows - 2 * w) / 2, (image.cols - 2 * w) / 2);
-      GpuBatch ocl_out_buf = GpuBatch(ocl_out, cv, device);
-      gpu_l1_outputs.push_back(ocl_out_buf);
-      gpu_l1_outputs_host.push_back(ocl_out);
-      Batch l2_ocl_out = Batch(batch_size, l2_numoutputs,
-          (ocl_out.rows - 2 * w) / 2, (ocl_out.cols - 2 * w) / 2);
-      GpuBatch l2_ocl_out_buf = GpuBatch(l2_ocl_out, cv, device);
-      gpu_l2_outputs.push_back(l2_ocl_out_buf);
-      gpu_l2_outputs_host.push_back(l2_ocl_out);
-    }
+
     double gpu_total = timestamp();
-    for (cl_uint device = 0; device < cv.num_devices; device++) {
-      GpuBatch batch = gpu_batches[device];
-      GpuBatch ocl_out_buf = gpu_l1_outputs[device];
-      ocl_conv(batch, ocl_out_buf, l1_gpu_weights[device], l1_bias, w, cv, conv, device);
-      err = clFinish(cv.commands[device]);
-      ocl_conv(ocl_out_buf, gpu_l2_outputs[device], l2_gpu_weights[device], l2_bias, w, cv, conv, device);
-    }
-    for (cl_uint device = 0; device < cv.num_devices; device++) {
-      err = clFinish(cv.commands[device]);
-      CHK_ERR(err);
-    }
+    gpu_l1.forward(&gpu_batches[0], 0);
+    gpu_l2.forward(gpu_l1.output, 0);
+    err = clFinish(cv.commands[0]);
     gpu_total = timestamp() - gpu_total;
     for (cl_uint device = 0; device < cv.num_devices; device++) {
-      GpuBatch out_buf = gpu_l1_outputs[device];
-      Batch out = gpu_l1_outputs_host[device];
+      GpuBatch out_buf = *gpu_l1.output;
+      Batch out(out_buf.batch_size, out_buf.depth, out_buf.rows, out_buf.cols);
       err = clEnqueueReadBuffer(cv.commands[device], out_buf.buf, true, 0,
-                                batch_size * out_buf.rows * out_buf.cols *
+                                out_buf.batch_size * out_buf.rows * out_buf.cols *
                                 out_buf.depth * sizeof(float),
                                 out.data, 0, NULL, NULL);
       CHK_ERR(err);
       err = clFinish(cv.commands[device]);
       CHK_ERR(err);
 
-      check_outputs(out, cpu_l1_outputs[device]);
-      out_buf = gpu_l2_outputs[device];
-      out = gpu_l2_outputs_host[device];
-      err = clEnqueueReadBuffer(cv.commands[device], out_buf.buf, true, 0,
-                                batch_size * out_buf.rows * out_buf.cols *
-                                out_buf.depth * sizeof(float),
-                                out.data, 0, NULL, NULL);
+      check_outputs(out, *cpu_l1.output);
+      GpuBatch l2_out_buf = *gpu_l2.output;
+      Batch l2_out(l2_out_buf.batch_size, l2_out_buf.depth, l2_out_buf.rows, l2_out_buf.cols);
+      err = clEnqueueReadBuffer(cv.commands[device], l2_out_buf.buf, true, 0,
+                                l2_out_buf.batch_size * l2_out_buf.rows * l2_out_buf.cols *
+                                l2_out_buf.depth * sizeof(float),
+                                l2_out.data, 0, NULL, NULL);
       CHK_ERR(err);
       err = clFinish(cv.commands[device]);
       CHK_ERR(err);
-      check_outputs(out, cpu_l2_outputs[device]);
+
+      check_outputs(l2_out, *cpu_l2.output);
     }
+    exit(0);
     err = clblasSetup();
     if (err != CL_SUCCESS) {
       printf("clblasSetup() failed with %d\n", err);
@@ -184,7 +131,7 @@ int main(int argc, char **argv) {
     vector<GpuBatch> hl1_out;
     vector<GpuBatch> hl1_v;
     for (cl_uint device = 0; device < 1; device++) {
-      GpuBatch batch = gpu_l2_outputs[device];
+      GpuBatch batch = *gpu_l2.output;
       Weights hidden_layer_weights(0, batch.rows * batch.cols * batch.depth * 
           batch.rows * batch.cols * batch.depth, batch.rows * batch.cols * batch.depth);
       GpuWeights weights(hidden_layer_weights, cv, device);

@@ -36,7 +36,7 @@ __kernel void conv(__global float *output, __global const float *input, __consta
 
   barrier(CLK_LOCAL_MEM_FENCE);
   if (i < output_rows && j < output_cols) {
-    float elt = buf[i * 2 * (cols - 2 * 2)];
+    float elt = buf[i * 2 * (cols - 2 * 2) + j * 2];
     #pragma unroll 2
     for (int ii = i * 2 + 1; ii < (i + 1) * 2; ii++) {
       __local float *buf_tmp = &buf[ii * (cols - 2 * 2)];
