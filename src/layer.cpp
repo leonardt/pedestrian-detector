@@ -31,38 +31,34 @@ class ConvPoolLayer {
 
 class GpuConvPoolLayer {
   public:
-    vector<vector<GpuWeights> > weights;
+    vector<GpuWeights> weights;
     vector<float> bias;
     int num_outputs;
     int num_inputs;
     int w;
+    cl_vars_t cv;
     cl_kernel conv;
     GpuBatch* output;
-    cl_vars_t cv;
     GpuBatch* delta_bias;
+    cl_uint device;
 
-    GpuConvPoolLayer(ConvPoolLayer layer, cl_vars_t cvs, cl_kernel kernel): cv(cvs), conv(kernel) {
+    GpuConvPoolLayer(ConvPoolLayer layer, cl_vars_t cvs, cl_kernel kernel, cl_uint dev): cv(cvs), conv(kernel) {
       num_outputs = layer.num_outputs;
       num_inputs = layer.num_inputs;
       w = layer.w;
-      for (cl_uint device = 0; device < cv.num_devices; device++) {
-        vector<GpuWeights> weights_set;
-        for (Weights w : layer.weights) {
-          weights_set.push_back(GpuWeights(w, cv, device));
-          bias.push_back(0.0f);
-        }
-        weights.push_back(weights_set);
-        output = new GpuBatch(*layer.output, cv, device);
+      device = dev;
+      for (Weights w : layer.weights) {
+        weights.push_back(GpuWeights(w, cv, device));
+        bias.push_back(0);
       }
+      output = new GpuBatch(*layer.output, cv, device);
       Batch delta(layer.output->batch_size, layer.output->depth, 
           layer.output->rows, layer.output->cols);
-      delta_bias = new GpuBatch(delta, cv, 0);
+      delta_bias = new GpuBatch(delta, cv, device);
     }
 
-    void forward(GpuBatch* batch, cl_uint device) {
-      ocl_conv(*batch, *output, weights[device], bias, w, cv, conv, device);
-      cl_int err = CL_SUCCESS;
-      err = clFinish(cv.commands[device]);
+    void forward(GpuBatch* batch) {
+      ocl_conv(*batch, *output, weights, bias, w, cv, conv, device);
     }
 };
 

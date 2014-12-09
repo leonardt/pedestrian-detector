@@ -6,7 +6,6 @@ using namespace std;
 
 
 void convolve(Batch input, Batch output, vector<Weights> weights_sets, int r, vector<float> bias) {
-  #pragma omp parallel for
   for (int z = 0; z < input.batch_size; z++) {
     for (int i = r; i < input.rows - r; i++) {
       for (int j = r; j < input.cols - r; j++) {
@@ -35,14 +34,13 @@ void convolve(Batch input, Batch output, vector<Weights> weights_sets, int r, ve
 }
 
 void max_pool(Batch input, Batch output, int s) {
-  #pragma omp parallel for
   for (int z = 0; z < input.batch_size; z++) {
     for (int i = 0; i < output.rows; i++) {
       for (int j = 0; j < output.cols; j++) {
         for (int d = 0; d < input.depth; d++) {
           float elt = input.data[z * input.depth * input.rows * input.cols + 
                 d * input.rows * input.cols + i * s * input.cols + j * s];
-          for (int ii = i * s + 1; ii < (i + 1) * s; ii++) {
+          for (int ii = i * s; ii < (i + 1) * s; ii++) {
             for (int jj = j * s; jj < (j + 1) * s; jj++) {
               float curr = input.data[z * input.depth * input.rows * input.cols + 
                 d * input.rows * input.cols + ii * input.cols + jj];
