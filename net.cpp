@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
     cl_kernel conv = build_kernel(string("conv"), string("./src/kernels.cl"), cv);
     cl_kernel hidden_layer_kern = build_kernel(string("hidden_layer"), string("./src/kernels.cl"), cv);
     cl_kernel softmax_kern = build_kernel(string("soft_max"), string("./src/kernels.cl"), cv);
+    cl_kernel tanh_kern = build_kernel(string("ocl_tanh"), string("./src/kernels.cl"), cv);
 
     cl_int err = CL_SUCCESS;
     Mat image, int_image;
@@ -171,49 +172,77 @@ int main(int argc, char **argv) {
       CHK_ERR(err);
       check_outputs(out, cpu_l2_outputs[device]);
     }
-
+    err = clblasSetup();
+    if (err != CL_SUCCESS) {
+      printf("clblasSetup() failed with %d\n", err);
+      return 1;
+    }
     // hidden layer
     vector<GpuBatch> hl1_out;
     vector<GpuBatch> hl1_v;
-    double hl_total = timestamp();
     for (cl_uint device = 0; device < cv.num_devices; device++) {
       GpuBatch batch = gpu_l2_outputs[device];
-      Weights hidden_layer_weights(0, batch.rows * batch.cols * batch.depth, 1);
+      Weights hidden_layer_weights(0, batch.rows * batch.cols * batch.depth * 
+          batch.rows * batch.cols * batch.depth, 1);
       GpuWeights weights(hidden_layer_weights, cv, device);
-      Batch out = Batch(batch_size, 1, 1, 1);
+      Weights bias(0, batch.rows * batch.cols * batch.depth, 1);
+      GpuWeights bias_buf(bias, cv, device);
+      Batch out = Batch(batch.batch_size, batch.rows, batch.cols, batch.depth);
       GpuBatch out_buf = GpuBatch(out, cv, device);
-      Batch v = Batch(batch_size, 1, 1, 1);
+      Batch v = Batch(batch.batch_size, batch.rows, batch.cols, batch.depth);
       GpuBatch v_buf = GpuBatch(v, cv, device);
-      ocl_hidden_layer(batch, weights, weights, out_buf, v_buf, 0, cv, 
-          hidden_layer_kern, device);
-      ocl_softmax(out_buf, cv, softmax_kern, device);
+      for (int offset = 0; offset < batch.batch_size; offset++) {
+        err = clblasSgemv(clblasRowMajor, clblasNoTrans, 
+                          batch.rows * batch.cols * batch.depth, 
+                          batch.rows * batch.cols * batch.depth, 
+                          1.0f, weights.buf, 
+                          0, batch.rows * batch.cols * batch.depth,
+                          batch.buf, 
+                          offset * batch.rows * batch.cols * batch.depth, 1,
+                          1.0f, v_buf.buf, 
+                          offset * batch.rows * batch.cols * batch.depth, 1, 1,
+                          &cv.commands[device], 0, NULL, NULL);
+        CHK_ERR(err);
+        err = clblasSaxpy(batch.rows * batch.cols * batch.depth, 1.0f, 
+                          bias_buf.buf, 0, 1,
+                          v_buf.buf,
+                          offset * batch.rows * batch.cols * batch.depth, 1,
+                          1, &cv.commands[device], 0, NULL, NULL);
+      }
+      ocl_tanh(out_buf, v_buf, cv, tanh_kern, device);
       hl1_out.push_back(out_buf);
       hl1_v.push_back(v_buf);
+      clFinish(cv.commands[device]);
     }
-    for (cl_uint device = 0; device < cv.num_devices; device++) {
-      err = clFinish(cv.commands[device]);
-      CHK_ERR(err);
-    }
-    cout << timestamp() - hl_total << endl;
-
     vector<GpuBatch> hl2_out;
     vector<GpuBatch> hl2_v;
     for (cl_uint device = 0; device < cv.num_devices; device++) {
       GpuBatch batch = hl1_out[device];
-      Weights hidden_layer_weights(0, 500 * batch.rows * batch.cols * batch.depth, 1);
+      Weights hidden_layer_weights(0, batch.rows * batch.cols * batch.depth * 2,
+          1);
       GpuWeights weights(hidden_layer_weights, cv, device);
-      Batch out = Batch(batch_size, 1, 1, 1);
+      Batch out = Batch(batch.batch_size, 1, 1, 2);
       GpuBatch out_buf = GpuBatch(out, cv, device);
-      Batch v = Batch(batch_size, 1, 1, 1);
+      Batch v = Batch(batch.batch_size, 1, 1, 2);
       GpuBatch v_buf = GpuBatch(v, cv, device);
-      err = clblasSgemv(clblasRowMajor, clblasNoTrans, 
-                        batch.rows * batch.cols * batch.depth, 
-                        batch.rows * batch.cols * batch.depth, 
-                        1.0f, weights.buf, 0, 1, batch.buf, 0, 1, 1.0f,
-                        out_buf.buf, 0, 1, 2, cv.commands, 0, NULL, NULL);
-      ocl_softmax(out_buf, cv, softmax_kern, device);
+      for (int offset = 0; offset < batch.batch_size; offset++) {
+        err = clblasSgemv(clblasRowMajor, clblasNoTrans, 
+                          2,
+                          batch.rows * batch.cols * batch.depth, 
+                          1.0f, weights.buf, 
+                          0, batch.rows * batch.cols * batch.depth,
+                          batch.buf, 
+                          offset * batch.rows * batch.cols * batch.depth, 1,
+                          1.0f, v_buf.buf, 
+                          offset * 2, 1, 1,
+                          &cv.commands[device], 0, NULL, NULL);
+        cout << err << endl;
+        CHK_ERR(err);
+      }
+      ocl_tanh(out_buf, v_buf, cv, tanh_kern, device);
       hl2_out.push_back(out_buf);
       hl2_v.push_back(v_buf);
+      clFinish(cv.commands[device]);
     }
 
     cout << "PASSED" << endl;
